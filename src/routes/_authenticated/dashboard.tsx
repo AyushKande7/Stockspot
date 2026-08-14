@@ -1,0 +1,313 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Package, Plus, Search, Store as StoreIcon, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { SiteHeader } from "@/components/SiteHeader";
+import { supabase } from "@/integrations/supabase/client";
+import { useSession, useAccountType } from "@/lib/use-session";
+
+export const Route = createFileRoute("/_authenticated/dashboard")({
+  head: () => ({
+    meta: [
+      { title: "Dashboard — StockSpot" },
+      { name: "description", content: "Manage your store details and keep item stock and prices current." },
+      { property: "og:title", content: "Dashboard — StockSpot" },
+      { property: "og:description", content: "Manage your store stock on StockSpot." },
+    ],
+  }),
+  component: Dashboard,
+});
+
+type StoreRow = {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  phone: string | null;
+};
+
+type ItemRow = {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  quantity: number;
+  unit: string;
+};
+
+function Dashboard() {
+  const { user } = useSession();
+  const role = useAccountType(user?.id);
+
+  return (
+    <div className="min-h-screen">
+      <SiteHeader />
+      <main className="mx-auto max-w-5xl px-4 py-10">
+        {role === "store_owner" ? (
+          <StoreDashboard userId={user!.id} />
+        ) : (
+          <CustomerHome />
+        )}
+      </main>
+    </div>
+  );
+}
+
+function CustomerHome() {
+  return (
+    <div className="glow-panel rounded-2xl border border-border p-8 text-center">
+      <span className="mx-auto flex size-12 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+        <Search className="size-5" />
+      </span>
+      <h1 className="mt-4 text-2xl font-bold">You're signed in as a shopper</h1>
+      <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+        Search any grocery item to see which stores have it in stock right now, how much they have,
+        the price, and where they are.
+      </p>
+      <Button asChild className="mt-6">
+        <Link to="/">Search for an item</Link>
+      </Button>
+    </div>
+  );
+}
+
+function StoreDashboard({ userId }: { userId: string }) {
+  const queryClient = useQueryClient();
+  const storeQuery = useQuery({
+    queryKey: ["my-store", userId],
+    queryFn: async (): Promise<StoreRow | null> => {
+      const { data, error } = await supabase
+        .from("stores")
+        .select("id, name, address, city, phone")
+        .eq("owner_id", userId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  if (storeQuery.isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading your store…</p>;
+  }
+
+  if (!storeQuery.data) {
+    return <CreateStoreForm userId={userId} onCreated={() => queryClient.invalidateQueries({ queryKey: ["my-store", userId] })} />;
+  }
+
+  return <InventoryManager store={storeQuery.data} />;
+}
+
+function CreateStoreForm({ userId, onCreated }: { userId: string; onCreated: () => void }) {
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [phone, setPhone] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    const { error } = await supabase
+      .from("stores")
+      .insert({ owner_id: userId, name, address, city, phone: phone || null });
+    setBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Store created");
+    onCreated();
+  }
+
+  return (
+    <div className="glow-panel mx-auto max-w-lg rounded-2xl border border-border p-6">
+      <span className="flex size-10 items-center justify-center rounded-xl bg-accent text-accent-foreground">
+        <StoreIcon className="size-5" />
+      </span>
+      <h1 className="mt-4 text-2xl font-bold">Set up your store</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Customers will see this info alongside your stock in search results.
+      </p>
+      <form onSubmit={submit} className="mt-6 space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="store-name">Store name</Label>
+          <Input id="store-name" value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="store-address">Address</Label>
+          <Input id="store-address" value={address} onChange={(e) => setAddress(e.target.value)} required />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="store-city">City</Label>
+            <Input id="store-city" value={city} onChange={(e) => setCity(e.target.value)} required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="store-phone">Phone (optional)</Label>
+            <Input id="store-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+        </div>
+        <Button type="submit" className="w-full" disabled={busy}>
+          {busy ? "Saving…" : "Create store"}
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+function InventoryManager({ store }: { store: StoreRow }) {
+  const queryClient = useQueryClient();
+  const key = ["inventory", store.id];
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [unit, setUnit] = useState("pc");
+  const [category, setCategory] = useState("General");
+  const [busy, setBusy] = useState(false);
+
+  const items = useQuery({
+    queryKey: key,
+    queryFn: async (): Promise<ItemRow[]> => {
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select("id, name, category, price, quantity, unit")
+        .eq("store_id", store.id)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  async function addItem(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    const { error } = await supabase.from("inventory_items").insert({
+      store_id: store.id,
+      name: name.trim(),
+      category,
+      unit,
+      price: Number(price) || 0,
+      quantity: Number(quantity) || 0,
+    });
+    setBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setName("");
+    setPrice("");
+    setQuantity("");
+    toast.success("Item added");
+    queryClient.invalidateQueries({ queryKey: key });
+  }
+
+  async function updateQuantity(item: ItemRow, next: number) {
+    const { error } = await supabase
+      .from("inventory_items")
+      .update({ quantity: Math.max(0, next) })
+      .eq("id", item.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: key });
+  }
+
+  async function removeItem(id: string) {
+    const { error } = await supabase.from("inventory_items").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Item removed");
+    queryClient.invalidateQueries({ queryKey: key });
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="glow-panel rounded-2xl border border-border p-6">
+        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Your store</p>
+        <h1 className="mt-1 text-3xl font-bold">{store.name}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {store.address}, {store.city}
+          {store.phone ? ` · ${store.phone}` : ""}
+        </p>
+      </div>
+
+      <form onSubmit={addItem} className="rounded-2xl border border-border bg-card p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <Plus className="size-4 text-primary" /> Add stock
+        </h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="space-y-2 lg:col-span-2">
+            <Label htmlFor="item-name">Item</Label>
+            <Input id="item-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Tomatoes" required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="item-category">Category</Label>
+            <Input id="item-category" value={category} onChange={(e) => setCategory(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="item-price">Price</Label>
+            <Input id="item-price" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="item-qty">Quantity</Label>
+            <Input id="item-qty" type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="item-unit">Unit</Label>
+            <Input id="item-unit" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="kg / pc / L" />
+          </div>
+          <div className="flex items-end">
+            <Button type="submit" className="w-full" disabled={busy}>
+              {busy ? "Adding…" : "Add item"}
+            </Button>
+          </div>
+        </div>
+      </form>
+
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <Package className="size-4 text-primary" /> Current stock
+        </h2>
+        {items.isLoading ? (
+          <p className="mt-4 text-sm text-muted-foreground">Loading…</p>
+        ) : items.data && items.data.length > 0 ? (
+          <ul className="mt-4 divide-y divide-border">
+            {items.data.map((item) => (
+              <li key={item.id} className="flex flex-wrap items-center gap-3 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{item.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.category} · {Number(item.price).toFixed(2)} per {item.unit}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => updateQuantity(item, item.quantity - 1)}>
+                    −
+                  </Button>
+                  <span className="w-16 text-center text-sm tabular-nums">
+                    {item.quantity} {item.unit}
+                  </span>
+                  <Button type="button" variant="outline" size="sm" onClick={() => updateQuantity(item, item.quantity + 1)}>
+                    +
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(item.id)} aria-label={`Remove ${item.name}`}>
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground">No items yet — add your first one above.</p>
+        )}
+      </div>
+    </div>
+  );
+}
