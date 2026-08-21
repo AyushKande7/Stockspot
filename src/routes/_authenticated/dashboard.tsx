@@ -99,43 +99,86 @@ function StoreDashboard({ userId }: { userId: string }) {
     return <p className="text-sm text-muted-foreground">Loading your store…</p>;
   }
 
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["my-store", userId] });
+
   if (!storeQuery.data) {
-    return <CreateStoreForm userId={userId} onCreated={() => queryClient.invalidateQueries({ queryKey: ["my-store", userId] })} />;
+    return <StoreProfileForm userId={userId} onSaved={refresh} />;
   }
 
-  return <InventoryManager store={storeQuery.data} />;
+  return <InventoryManager store={storeQuery.data} onSaved={refresh} />;
 }
 
-function CreateStoreForm({ userId, onCreated }: { userId: string; onCreated: () => void }) {
-  const [name, setName] = useState("");
-  const [address, setAddress] = useState("");
-  const [city, setCity] = useState("");
-  const [phone, setPhone] = useState("");
+function StoreProfileForm({
+  userId,
+  store,
+  onSaved,
+}: {
+  userId?: string;
+  store?: StoreRow;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(store?.name ?? "");
+  const [address, setAddress] = useState(store?.address ?? "");
+  const [city, setCity] = useState(store?.city ?? "");
+  const [phone, setPhone] = useState(store?.phone ?? "");
+  const [email, setEmail] = useState(store?.contact_email ?? "");
+  const [website, setWebsite] = useState(store?.website ?? "");
+  const [hours, setHours] = useState(store?.opening_hours ?? "");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    store?.latitude != null && store.longitude != null
+      ? { lat: store.latitude, lng: store.longitude }
+      : null,
+  );
   const [busy, setBusy] = useState(false);
+
+  function useMyLocation() {
+    if (!navigator.geolocation) {
+      toast.error("Location isn't available in this browser");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        toast.success("Store location captured");
+      },
+      () => toast.error("Couldn't get your location"),
+    );
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const { error } = await supabase
-      .from("stores")
-      .insert({ owner_id: userId, name, address, city, phone: phone || null });
+    const payload = {
+      name,
+      address,
+      city,
+      phone: phone || null,
+      contact_email: email || null,
+      website: website || null,
+      opening_hours: hours || null,
+      latitude: coords?.lat ?? null,
+      longitude: coords?.lng ?? null,
+    };
+    const { error } = store
+      ? await supabase.from("stores").update(payload).eq("id", store.id)
+      : await supabase.from("stores").insert({ ...payload, owner_id: userId! });
     setBusy(false);
     if (error) {
       toast.error(error.message);
       return;
     }
-    toast.success("Store created");
-    onCreated();
+    toast.success(store ? "Store profile updated" : "Store created");
+    onSaved();
   }
 
   return (
-    <div className="glow-panel mx-auto max-w-lg rounded-2xl border border-border p-6">
+    <div className={store ? "rounded-2xl border border-border bg-card p-6" : "glow-panel mx-auto max-w-lg rounded-2xl border border-border p-6"}>
       <span className="flex size-10 items-center justify-center rounded-xl bg-accent text-accent-foreground">
         <StoreIcon className="size-5" />
       </span>
-      <h1 className="mt-4 text-2xl font-bold">Set up your store</h1>
+      <h2 className="mt-4 text-2xl font-bold">{store ? "Store profile" : "Set up your store"}</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Customers will see this info alongside your stock in search results.
+        Customers see this info alongside your stock in search results.
       </p>
       <form onSubmit={submit} className="mt-6 space-y-4">
         <div className="space-y-2">
@@ -155,9 +198,34 @@ function CreateStoreForm({ userId, onCreated }: { userId: string; onCreated: () 
             <Label htmlFor="store-phone">Phone (optional)</Label>
             <Input id="store-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="store-email">Contact email (optional)</Label>
+            <Input id="store-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="store-website">Website (optional)</Label>
+            <Input id="store-website" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://" />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="store-hours">Opening hours</Label>
+          <Input
+            id="store-hours"
+            value={hours}
+            onChange={(e) => setHours(e.target.value)}
+            placeholder="Mon–Sat 8:00–21:00, Sun 9:00–14:00"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="button" variant="outline" onClick={useMyLocation}>
+            <MapPin className="size-4" /> Use my current location
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            {coords ? `Pinned at ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : "Lets customers see how far you are"}
+          </span>
         </div>
         <Button type="submit" className="w-full" disabled={busy}>
-          {busy ? "Saving…" : "Create store"}
+          {busy ? "Saving…" : store ? "Save profile" : "Create store"}
         </Button>
       </form>
     </div>
