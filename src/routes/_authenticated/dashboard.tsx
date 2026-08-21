@@ -28,6 +28,11 @@ type StoreRow = {
   address: string;
   city: string;
   phone: string | null;
+  opening_hours: string | null;
+  contact_email: string | null;
+  website: string | null;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 type ItemRow = {
