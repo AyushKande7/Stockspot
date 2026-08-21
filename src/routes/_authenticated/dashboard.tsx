@@ -303,14 +303,42 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
 
   return (
     <div className="space-y-8">
-      <div className="glow-panel rounded-2xl border border-border p-6">
-        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Your store</p>
-        <h1 className="mt-1 text-3xl font-bold">{store.name}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {store.address}, {store.city}
-          {store.phone ? ` · ${store.phone}` : ""}
-        </p>
-      </div>
+      {editing ? (
+        <StoreProfileForm
+          store={store}
+          onSaved={() => {
+            setEditing(false);
+            onSaved();
+          }}
+        />
+      ) : (
+        <div className="glow-panel rounded-2xl border border-border p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Your store</p>
+              <h1 className="mt-1 text-3xl font-bold">{store.name}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {store.address}, {store.city}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {store.opening_hours ?? "Opening hours not set"}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {[store.phone, store.contact_email, store.website].filter(Boolean).join(" · ") ||
+                  "No contact info added"}
+              </p>
+              {store.latitude == null && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Pin your location so shoppers see the distance.
+                </p>
+              )}
+            </div>
+            <Button type="button" variant="outline" onClick={() => setEditing(true)}>
+              Edit profile
+            </Button>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={addItem} className="rounded-2xl border border-border bg-card p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
