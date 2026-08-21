@@ -214,11 +214,43 @@ function ResultList({ title, items, muted }: { title: string; items: Result[]; m
                   <MapPin className="size-3.5" />
                   {item.stores?.address}
                   {item.stores?.city ? `, ${item.stores.city}` : ""}
+                  {typeof item.distanceKm === "number" && (
+                    <span className="text-primary">· {item.distanceKm.toFixed(1)} km away</span>
+                  )}
                 </p>
+                {item.stores?.opening_hours && (
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Clock className="size-3.5" />
+                    {item.stores.opening_hours}
+                  </p>
+                )}
                 {item.stores?.phone && (
                   <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Phone className="size-3.5" />
-                    {item.stores.phone}
+                    <a href={`tel:${item.stores.phone}`} className="hover:text-primary">
+                      {item.stores.phone}
+                    </a>
+                  </p>
+                )}
+                {item.stores?.contact_email && (
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Mail className="size-3.5" />
+                    <a href={`mailto:${item.stores.contact_email}`} className="hover:text-primary">
+                      {item.stores.contact_email}
+                    </a>
+                  </p>
+                )}
+                {item.stores?.website && (
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Globe className="size-3.5" />
+                    <a
+                      href={item.stores.website}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="hover:text-primary"
+                    >
+                      {item.stores.website.replace(/^https?:\/\//, "")}
+                    </a>
                   </p>
                 )}
                 <p className="mt-3 text-sm">
