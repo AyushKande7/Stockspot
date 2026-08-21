@@ -70,6 +70,15 @@ const SUGGESTIONS = ["Milk", "Rice", "Tomatoes", "Eggs", "Bread", "Sugar"];
 function Index() {
   const [term, setTerm] = useState("");
   const [query, setQuery] = useState("");
+  const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setHere({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => undefined,
+    );
+  }, []);
 
   const results = useQuery({
     queryKey: ["search", query],
@@ -77,7 +86,9 @@ function Index() {
     queryFn: async (): Promise<Result[]> => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, category, price, quantity, unit, stores(id, name, address, city, phone)")
+        .select(
+          "id, name, category, price, quantity, unit, stores(id, name, address, city, phone, opening_hours, contact_email, website, latitude, longitude)",
+        )
         .ilike("name", `%${query.trim()}%`)
         .order("quantity", { ascending: false })
         .limit(50);
@@ -86,8 +97,21 @@ function Index() {
     },
   });
 
-  const inStock = (results.data ?? []).filter((r) => r.quantity > 0);
-  const outOfStock = (results.data ?? []).filter((r) => r.quantity === 0);
+  const withDistance = (results.data ?? []).map((r) => ({
+    ...r,
+    distanceKm:
+      here && r.stores?.latitude != null && r.stores.longitude != null
+        ? distanceKm(here, { lat: r.stores.latitude, lng: r.stores.longitude })
+        : null,
+  }));
+  const sorted = here
+    ? [...withDistance].sort(
+        (a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity),
+      )
+    : withDistance;
+
+  const inStock = sorted.filter((r) => r.quantity > 0);
+  const outOfStock = sorted.filter((r) => r.quantity === 0);
 
   return (
     <div className="min-h-screen">
