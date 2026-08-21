@@ -27,6 +27,19 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+type StoreInfo = {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  phone: string | null;
+  opening_hours: string | null;
+  contact_email: string | null;
+  website: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
+
 type Result = {
   id: string;
   name: string;
@@ -34,8 +47,23 @@ type Result = {
   price: number;
   quantity: number;
   unit: string;
-  stores: { id: string; name: string; address: string; city: string; phone: string | null } | null;
+  stores: StoreInfo | null;
+  distanceKm?: number | null;
 };
+
+function distanceKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
 
 const SUGGESTIONS = ["Milk", "Rice", "Tomatoes", "Eggs", "Bread", "Sugar"];
 
