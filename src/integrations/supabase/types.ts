@@ -80,29 +80,44 @@ export type Database = {
         Row: {
           address: string
           city: string
+          contact_email: string | null
           created_at: string
           id: string
+          latitude: number | null
+          longitude: number | null
           name: string
+          opening_hours: string | null
           owner_id: string
           phone: string | null
+          website: string | null
         }
         Insert: {
           address?: string
           city?: string
+          contact_email?: string | null
           created_at?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name: string
+          opening_hours?: string | null
           owner_id: string
           phone?: string | null
+          website?: string | null
         }
         Update: {
           address?: string
           city?: string
+          contact_email?: string | null
           created_at?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name?: string
+          opening_hours?: string | null
           owner_id?: string
           phone?: string | null
+          website?: string | null
         }
         Relationships: []
       }
