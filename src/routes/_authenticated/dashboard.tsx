@@ -232,9 +232,10 @@ function StoreProfileForm({
   );
 }
 
-function InventoryManager({ store }: { store: StoreRow }) {
+function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => void }) {
   const queryClient = useQueryClient();
   const key = ["inventory", store.id];
+  const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [quantity, setQuantity] = useState("");
