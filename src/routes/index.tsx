@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MapPin, Phone, Search, ShoppingBasket } from "lucide-react";
+import { Clock, Globe, Mail, MapPin, Phone, Search, ShoppingBasket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,19 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+type StoreInfo = {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  phone: string | null;
+  opening_hours: string | null;
+  contact_email: string | null;
+  website: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
+
 type Result = {
   id: string;
   name: string;
@@ -34,14 +47,38 @@ type Result = {
   price: number;
   quantity: number;
   unit: string;
-  stores: { id: string; name: string; address: string; city: string; phone: string | null } | null;
+  stores: StoreInfo | null;
+  distanceKm?: number | null;
 };
+
+function distanceKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
 
 const SUGGESTIONS = ["Milk", "Rice", "Tomatoes", "Eggs", "Bread", "Sugar"];
 
 function Index() {
   const [term, setTerm] = useState("");
   const [query, setQuery] = useState("");
+  const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setHere({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => undefined,
+    );
+  }, []);
 
   const results = useQuery({
     queryKey: ["search", query],
@@ -49,7 +86,9 @@ function Index() {
     queryFn: async (): Promise<Result[]> => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, category, price, quantity, unit, stores(id, name, address, city, phone)")
+        .select(
+          "id, name, category, price, quantity, unit, stores(id, name, address, city, phone, opening_hours, contact_email, website, latitude, longitude)",
+        )
         .ilike("name", `%${query.trim()}%`)
         .order("quantity", { ascending: false })
         .limit(50);
@@ -58,8 +97,21 @@ function Index() {
     },
   });
 
-  const inStock = (results.data ?? []).filter((r) => r.quantity > 0);
-  const outOfStock = (results.data ?? []).filter((r) => r.quantity === 0);
+  const withDistance = (results.data ?? []).map((r) => ({
+    ...r,
+    distanceKm:
+      here && r.stores?.latitude != null && r.stores.longitude != null
+        ? distanceKm(here, { lat: r.stores.latitude, lng: r.stores.longitude })
+        : null,
+  }));
+  const sorted = here
+    ? [...withDistance].sort(
+        (a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity),
+      )
+    : withDistance;
+
+  const inStock = sorted.filter((r) => r.quantity > 0);
+  const outOfStock = sorted.filter((r) => r.quantity === 0);
 
   return (
     <div className="min-h-screen">
@@ -162,11 +214,43 @@ function ResultList({ title, items, muted }: { title: string; items: Result[]; m
                   <MapPin className="size-3.5" />
                   {item.stores?.address}
                   {item.stores?.city ? `, ${item.stores.city}` : ""}
+                  {typeof item.distanceKm === "number" && (
+                    <span className="text-primary">· {item.distanceKm.toFixed(1)} km away</span>
+                  )}
                 </p>
+                {item.stores?.opening_hours && (
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Clock className="size-3.5" />
+                    {item.stores.opening_hours}
+                  </p>
+                )}
                 {item.stores?.phone && (
                   <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Phone className="size-3.5" />
-                    {item.stores.phone}
+                    <a href={`tel:${item.stores.phone}`} className="hover:text-primary">
+                      {item.stores.phone}
+                    </a>
+                  </p>
+                )}
+                {item.stores?.contact_email && (
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Mail className="size-3.5" />
+                    <a href={`mailto:${item.stores.contact_email}`} className="hover:text-primary">
+                      {item.stores.contact_email}
+                    </a>
+                  </p>
+                )}
+                {item.stores?.website && (
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Globe className="size-3.5" />
+                    <a
+                      href={item.stores.website}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="hover:text-primary"
+                    >
+                      {item.stores.website.replace(/^https?:\/\//, "")}
+                    </a>
                   </p>
                 )}
                 <p className="mt-3 text-sm">
