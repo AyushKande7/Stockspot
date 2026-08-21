@@ -87,7 +87,7 @@ function StoreDashboard({ userId }: { userId: string }) {
     queryFn: async (): Promise<StoreRow | null> => {
       const { data, error } = await supabase
         .from("stores")
-        .select("id, name, address, city, phone")
+        .select("id, name, address, city, phone, opening_hours, contact_email, website, latitude, longitude")
         .eq("owner_id", userId)
         .maybeSingle();
       if (error) throw error;
