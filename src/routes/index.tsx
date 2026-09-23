@@ -349,11 +349,10 @@ function Index() {
 
 function ProductCard({ product }: { product: ProductGroup }) {
   const [showAll, setShowAll] = useState(false);
-  const lowestPrice = product.listings.reduce(
-    (lowest, listing) =>
-      listing.quantity > 0 && Number(listing.price) < Number(lowest.price) ? listing : lowest,
-    product.listings[0],
-  );
+  const lowestPrice =
+    [...product.listings]
+      .filter((listing) => listing.quantity > 0)
+      .sort((a, b) => Number(a.price) - Number(b.price))[0] ?? product.listings[0];
   const visibleListings = showAll ? product.listings : product.listings.slice(0, 3);
 
   return (
