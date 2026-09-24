@@ -4,7 +4,7 @@ make a grocery app that will show customer which store have how much stock of th
 
 This project was built with [Lovable](https://lovable.dev).
 
-**Live app**: https://what-to-buy-app.lovable.app
+**Live app**: https://stockspot1.lovable.app
 
 ## Build with Lovable
 
