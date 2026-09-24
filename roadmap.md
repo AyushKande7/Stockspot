@@ -1,0 +1,5 @@
+- [ ] Add phone home-screen installation metadata and app icons.
+- [ ] Add authenticated, server-verified customer/store-owner account deletion with confirmation.
+- [ ] Allow store owners to edit existing item prices and quantities.
+- [ ] Display straight-line distances from granted customer location to stores with coordinates.
+- [ ] Verify changes in the preview and check the latest build log.
