@@ -3,6 +3,7 @@
 ## What will change
 - Add the standard phone home-screen installation details for StockSpot, including its app name, matching colors, and phone-sized icons. This makes it installable from its website; it does not create an App Store or Play Store listing.
 - Let signed-in customers and store owners permanently delete their own account from the account area, with a clear confirmation before removal.
+- Let store owners change the price and available quantity on existing inventory listings, as well as add and remove items.
 - Show the straight-line distance from the shopper’s current location to each store when both locations are available; keep store address visible when distance cannot be calculated.
 
 ## Not included
@@ -13,5 +14,6 @@
 ## Technical details
 - Add a web app manifest and 192px/512px PNG icons under `public/`, and add manifest, theme-color, and Apple icon references in the shared document head.
 - Add account deletion through an authenticated server function that verifies the caller, then securely removes that account and its owned records; never use a browser-only credential or admin check.
-- Reuse StockSpot’s existing current-location permission and point-to-point distance calculation on the catalogue results.
-- Verify the public catalogue, distance display behavior, account deletion flow, and manifest/icon responses in the preview.
+- Reuse StockSpot’s existing current-location permission and point-to-point distance calculation on catalogue results; show distance only when location access is granted and a store location is set.
+- Add direct price and quantity editing to existing store inventory rows, keeping changes restricted to the store owner.
+- Verify the public catalogue, distance display behavior, account deletion flow, owner inventory edits, and manifest/icon responses in the preview.
