@@ -358,18 +358,6 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
     queryClient.invalidateQueries({ queryKey: key });
   }
 
-  async function updateQuantity(item: ItemRow, next: number) {
-    const { error } = await supabase
-      .from("inventory_items")
-      .update({ quantity: Math.max(0, next) })
-      .eq("id", item.id);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    queryClient.invalidateQueries({ queryKey: key });
-  }
-
   async function removeItem(id: string) {
     const { error } = await supabase.from("inventory_items").delete().eq("id", id);
     if (error) {
