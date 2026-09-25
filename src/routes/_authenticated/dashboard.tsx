@@ -238,12 +238,14 @@ function StoreProfileForm({
       latitude: coords?.lat ?? null,
       longitude: coords?.lng ?? null,
     };
-    const { error } = store
+    const saveResult = store
       ? await supabase.from("stores").update(payload).eq("id", store.id)
-      : await supabase.from("stores").insert({ ...payload, owner_id: userId });
+      : userId
+        ? await supabase.from("stores").insert({ ...payload, owner_id: userId })
+        : { error: new Error("Please sign in before creating a store.") };
     setBusy(false);
-    if (error) {
-      toast.error(error.message);
+    if (saveResult.error) {
+      toast.error(saveResult.error.message);
       return;
     }
     toast.success(store ? "Store profile updated" : "Store created");
