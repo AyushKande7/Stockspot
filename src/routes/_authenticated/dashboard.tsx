@@ -2,13 +2,25 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useNavigate, useRouter } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { MapPin, Package, Plus, Search, Store as StoreIcon, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { SiteHeader } from "@/components/SiteHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, useAccountType } from "@/lib/use-session";
+import { deleteOwnAccount } from "@/lib/account.functions";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -48,17 +60,79 @@ function Dashboard() {
   const { user } = useSession();
   const role = useAccountType(user?.id);
 
+  if (!user || !role) {
+    return (
+      <div className="min-h-screen">
+        <SiteHeader />
+        <main className="mx-auto max-w-5xl px-4 py-10 text-sm text-muted-foreground">Loading your account…</main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen">
       <SiteHeader />
       <main className="mx-auto max-w-5xl px-4 py-10">
         {role === "store_owner" ? (
-          <StoreDashboard userId={user!.id} />
+          <StoreDashboard userId={user.id} />
         ) : (
           <CustomerHome />
         )}
+        <AccountDangerZone />
       </main>
     </div>
+  );
+}
+
+function AccountDangerZone() {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const deleteAccount = useServerFn(deleteOwnAccount);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const router = useRouter();
+
+  async function confirmDeletion() {
+    setBusy(true);
+    try {
+      await deleteAccount();
+      await supabase.auth.signOut({ scope: "local" });
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      toast.success("Your account has been deleted.");
+      await navigate({ to: "/", replace: true });
+      router.invalidate();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Your account could not be deleted.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="mt-10 border-t border-border pt-6">
+      <h2 className="text-lg font-semibold">Account</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Permanently remove your StockSpot account and its associated store listings.</p>
+      <Button type="button" variant="destructive" className="mt-4" onClick={() => setOpen(true)}>
+        Delete account
+      </Button>
+      <AlertDialog open={open} onOpenChange={(nextOpen) => !busy && setOpen(nextOpen)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete your account permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes your account. Any store profile and inventory connected to it will also be deleted. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Keep my account</AlertDialogCancel>
+            <Button type="button" variant="destructive" onClick={confirmDeletion} disabled={busy}>
+              {busy ? "Deleting…" : "Delete permanently"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
   );
 }
 
@@ -148,6 +222,11 @@ function StoreProfileForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    if (!store && !userId) {
+      setBusy(false);
+      toast.error("Please sign in before creating a store.");
+      return;
+    }
     const payload = {
       name,
       address,
@@ -159,12 +238,14 @@ function StoreProfileForm({
       latitude: coords?.lat ?? null,
       longitude: coords?.lng ?? null,
     };
-    const { error } = store
+    const saveResult = store
       ? await supabase.from("stores").update(payload).eq("id", store.id)
-      : await supabase.from("stores").insert({ ...payload, owner_id: userId! });
+      : userId
+        ? await supabase.from("stores").insert({ ...payload, owner_id: userId })
+        : { error: new Error("Please sign in before creating a store.") };
     setBusy(false);
-    if (error) {
-      toast.error(error.message);
+    if (saveResult.error) {
+      toast.error(saveResult.error.message);
       return;
     }
     toast.success(store ? "Store profile updated" : "Store created");
@@ -279,18 +360,6 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
     queryClient.invalidateQueries({ queryKey: key });
   }
 
-  async function updateQuantity(item: ItemRow, next: number) {
-    const { error } = await supabase
-      .from("inventory_items")
-      .update({ quantity: Math.max(0, next) })
-      .eq("id", item.id);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    queryClient.invalidateQueries({ queryKey: key });
-  }
-
   async function removeItem(id: string) {
     const { error } = await supabase.from("inventory_items").delete().eq("id", id);
     if (error) {
@@ -389,20 +458,10 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
                     {item.category} · {Number(item.price).toFixed(2)} per {item.unit}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => updateQuantity(item, item.quantity - 1)}>
-                    −
-                  </Button>
-                  <span className="w-16 text-center text-sm tabular-nums">
-                    {item.quantity} {item.unit}
-                  </span>
-                  <Button type="button" variant="outline" size="sm" onClick={() => updateQuantity(item, item.quantity + 1)}>
-                    +
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(item.id)} aria-label={`Remove ${item.name}`}>
+                <ItemStockEditor item={item} onSaved={() => queryClient.invalidateQueries({ queryKey: key })} />
+                <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(item.id)} aria-label={`Remove ${item.name}`}>
                     <Trash2 className="size-4" />
-                  </Button>
-                </div>
+                </Button>
               </li>
             ))}
           </ul>
@@ -411,5 +470,50 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
         )}
       </div>
     </div>
+  );
+}
+
+function ItemStockEditor({ item, onSaved }: { item: ItemRow; onSaved: () => void }) {
+  const [price, setPrice] = useState(String(item.price));
+  const [quantity, setQuantity] = useState(String(item.quantity));
+  const [busy, setBusy] = useState(false);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    const nextPrice = Number(price);
+    const nextQuantity = Number(quantity);
+    if (!Number.isFinite(nextPrice) || nextPrice < 0 || !Number.isInteger(nextQuantity) || nextQuantity < 0) {
+      toast.error("Enter a valid price and whole-number stock quantity.");
+      return;
+    }
+
+    setBusy(true);
+    const { error } = await supabase
+      .from("inventory_items")
+      .update({ price: nextPrice, quantity: nextQuantity })
+      .eq("id", item.id);
+    setBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`${item.name} updated`);
+    onSaved();
+  }
+
+  return (
+    <form onSubmit={save} className="flex flex-wrap items-end gap-2">
+      <div className="w-24 space-y-1">
+        <Label htmlFor={`price-${item.id}`} className="text-xs">Price</Label>
+        <Input id={`price-${item.id}`} type="number" min="0" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} aria-label={`Price for ${item.name}`} />
+      </div>
+      <div className="w-24 space-y-1">
+        <Label htmlFor={`quantity-${item.id}`} className="text-xs">Stock ({item.unit})</Label>
+        <Input id={`quantity-${item.id}`} type="number" min="0" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} aria-label={`Stock quantity for ${item.name}`} />
+      </div>
+      <Button type="submit" variant="secondary" size="sm" disabled={busy}>
+        {busy ? "Saving…" : "Save"}
+      </Button>
+    </form>
   );
 }

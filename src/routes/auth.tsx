@@ -22,6 +22,8 @@ export const Route = createFileRoute("/auth")({
         property: "og:description",
         content: "Shopper and store logins for the StockSpot grocery stock finder.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AuthPage,
