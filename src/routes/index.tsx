@@ -155,7 +155,17 @@ function Index() {
         ? distanceKm(here, { lat: r.stores.latitude, lng: r.stores.longitude })
         : null,
   }));
-  const products = groupListings(withDistance).filter(
+  const products = groupListings(withDistance).map((product) => ({
+    ...product,
+    listings: here
+      ? [...product.listings].sort((a, b) => {
+          if (a.distanceKm == null && b.distanceKm == null) return 0;
+          if (a.distanceKm == null) return 1;
+          if (b.distanceKm == null) return -1;
+          return a.distanceKm - b.distanceKm;
+        })
+      : product.listings,
+  })).filter(
     (product) => category === "All items" || product.category === category,
   );
 
@@ -322,7 +332,7 @@ function Index() {
               </p>
               {here && (
                 <p className="flex items-center gap-1.5 text-xs text-primary">
-                  <MapPin className="size-3.5" /> Distances from your location
+                  <MapPin className="size-3.5" /> Straight-line distances from your location
                 </p>
               )}
             </div>
