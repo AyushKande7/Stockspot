@@ -29,6 +29,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
       { name: "description", content: "Manage your store details and keep item stock and prices current." },
       { property: "og:title", content: "Dashboard — StockSpot" },
       { property: "og:description", content: "Manage your store stock on StockSpot." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Dashboard,
