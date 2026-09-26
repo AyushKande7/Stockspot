@@ -1,5 +1,5 @@
-- [ ] Add phone home-screen installation metadata and app icons.
-- [ ] Add authenticated, server-verified customer/store-owner account deletion with confirmation.
-- [ ] Allow store owners to edit existing item prices and quantities.
-- [ ] Display straight-line distances from granted customer location to stores with coordinates.
-- [ ] Verify changes in the preview and check the latest build log.
+- [x] Add phone home-screen installation metadata and app icons; manifest and icon respond successfully.
+- [x] Add authenticated, server-verified customer/store-owner account deletion with confirmation; verified the dialog and safe cancel path, not the destructive delete itself.
+- [x] Allow store owners to edit existing item prices and quantities; verified saving and restoring demo values.
+- [x] Display straight-line distances from granted customer location to stores with coordinates; the location flow is present, but current stores have no saved coordinates, so actual distance values are not yet shown.
+- [x] Verify the catalogue, sign-in, theme switch, owner edit, confirmation dialog, install metadata, runtime console and latest successful build in the preview.
