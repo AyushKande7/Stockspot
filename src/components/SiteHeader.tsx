@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Moon, ShoppingBasket, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { InstallAppButton } from "@/components/InstallAppButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/lib/use-session";
 
@@ -43,6 +44,7 @@ export function SiteHeader() {
         </Link>
 
         <nav className="flex items-center gap-1 sm:gap-2">
+          <InstallAppButton />
           <Button
             type="button"
             variant="ghost"
