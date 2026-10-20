@@ -1,19 +1,21 @@
-# Prepare StockSpot for a college competition
+# Make StockSpot competition-ready and worldwide-capable
 
 ## What will change
-- Add a Smart Basket to the public grocery catalogue: shoppers choose real listed items and quantities, then compare the cheapest single-store basket with a split-store alternative.
-- Respect each store’s available quantity; clearly show total cost, store, stock fit, and distance when location data is available. Add a one-tap demo basket using only products already in the catalogue, with a reset and no account requirement.
-- Make sign-in and account creation feel more interactive and clear, including a visible account-type choice, show/hide password, stronger field feedback, clear loading/error states, and a password-reset flow.
-- Add Google Maps to store location setup so owners can choose and review a map pin, and let shoppers see mapped stores from available location coordinates alongside the existing catalogue.
-- Preserve the current dark/light themes, account roles, inventory controls, and no-delivery model.
+- Add a Smart Basket to the public grocery catalogue. Shoppers can add real listed products and quantities, then compare the cheapest complete basket at one store with a split-store option. Respect each store’s available quantity, show clear totals and store details, and never invent stock or prices.
+- Include a one-tap demo basket drawn only from products currently in the catalogue, with a simple reset and no shopper login required.
+- Add Google Maps to store setup so owners can select and review their actual store pin, and give shoppers a map view of stores that have saved coordinates. Keep addresses and catalogue browsing usable when location is unavailable.
+- Improve the sign-in and account-creation experience with clearer shopper/store choice, show/hide password, useful input feedback and loading/error states, plus a complete password-reset flow.
+- Lay groundwork for worldwide use: store and display prices in each store’s chosen currency, use locale-aware number formatting, and make language and quantity-unit handling ready for localization. Prevent misleading basket comparisons across different currencies; do not invent exchange rates or translations.
+- Preserve StockSpot’s existing themes, public catalogue, account roles, and store inventory controls.
 
 ## Not included
-- Delivery, checkout, payments, invented products or prices, or unrelated redesigns.
-- Driving directions or distance estimates when store coordinates are unavailable.
-- Google sign-in; this request is for an improved sign-in experience, not a new identity provider.
+- Delivery, checkout, payments, road directions, automatic currency conversion, or fabricated store/product data.
+- Full translation of every screen or automated translation of store-entered product names.
+- Unrelated redesigns or a new social-login provider.
 
 ## Technical details
-- Calculate basket comparisons from the public catalogue data already loaded by the app. Keep the calculation small and testable, including complete-store, split-store, insufficient-stock, and no-valid-plan cases.
-- Reuse stored store coordinates for Maps and the existing straight-line distance behavior. Use the Google Maps Platform connector for map display and store-pin selection; connector setup will be needed if no accessible connection exists.
-- Keep sign-in work within the current authentication flow and use its supported password-reset email process.
-- Verify the catalogue-to-basket flow, sign-in and reset states, store pin selection/save, shopper map/list behavior, phone layout, and a successful production preview build. Live Maps rendering must be checked on an authorized published origin.
+- Calculate basket options from the catalogue’s real prices and quantities in a small testable module. Cover one-store completion, split-store totals, insufficient stock, no valid plan, and mixed-currency safeguards.
+- Keep display names in user profile data and keep shopper/store-owner roles in the protected role table; never use profile fields as permissions.
+- Reuse existing store coordinates for mapping and straight-line distances. Google Maps needs an available project connection; if none is accessible, connection setup is a required step before live map display can be verified.
+- Keep password recovery on a public reset page and use the existing account system’s recovery process.
+- Verify the shopper search-to-basket flow, sign-in/reset states, store pin selection and save, shopper map/list behavior, responsive phone layout, and successful production preview build. Live Google Maps rendering must be checked on an authorized published origin.
