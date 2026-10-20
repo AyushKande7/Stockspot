@@ -1,5 +1,7 @@
-- [x] Add phone home-screen installation metadata and app icons; manifest and icon respond successfully.
-- [x] Add authenticated, server-verified customer/store-owner account deletion with confirmation; verified the dialog and safe cancel path, not the destructive delete itself.
-- [x] Allow store owners to edit existing item prices and quantities; verified saving and restoring demo values.
-- [x] Display straight-line distances from granted customer location to stores with coordinates; the location flow is present, but current stores have no saved coordinates, so actual distance values are not yet shown.
-- [x] Verify the catalogue, sign-in, theme switch, owner edit, confirmation dialog, install metadata, runtime console and latest successful build in the preview.
+# Competition and worldwide readiness
+- [ ] Add a Smart Basket with real-catalogue demo fill, lowest single-store and split-store plans, quantity limits, and comparison safeguards.
+- [ ] Add per-store currency selection and locale-aware money display; make language and quantity-unit groundwork without fabricating conversions or translations.
+- [ ] Add a Google Maps store-pin picker and shopper store map; blocked on linking an accessible Google Maps connection.
+- [ ] Improve account sign-in/sign-up interactivity and implement the full public password recovery flow while keeping account roles in the protected role table.
+- [ ] Add an explicit connection-lost/retry view separate from true missing-page 404 handling.
+- [ ] Verify shopper basket, auth recovery, maps setup status, online/offline/error states, mobile experience, and successful build.
