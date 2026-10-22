@@ -82,6 +82,7 @@ export type Database = {
           city: string
           contact_email: string | null
           created_at: string
+          currency: string
           id: string
           latitude: number | null
           longitude: number | null
@@ -96,6 +97,7 @@ export type Database = {
           city?: string
           contact_email?: string | null
           created_at?: string
+          currency?: string
           id?: string
           latitude?: number | null
           longitude?: number | null
@@ -110,6 +112,7 @@ export type Database = {
           city?: string
           contact_email?: string | null
           created_at?: string
+          currency?: string
           id?: string
           latitude?: number | null
           longitude?: number | null
