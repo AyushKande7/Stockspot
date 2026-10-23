@@ -21,20 +21,20 @@ type GoogleMarker = {
   setMap: (map: GoogleMapInstance | null) => void;
 };
 
+type GoogleMapsApi = {
+  Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance;
+  Marker: new (options: { map: GoogleMapInstance; position: { lat: number; lng: number }; title: string }) => GoogleMarker;
+};
+
 declare global {
   interface Window {
+    google?: { maps: GoogleMapsApi };
     initStockSpotMap?: () => void;
-    dispatchEvent(event: Event): boolean;
   }
 }
 
 const MAP_READY_EVENT = "stockspot-maps-ready";
 const DEFAULT_CENTER = { lat: 20, lng: 0 };
-
-function getGoogleMaps() {
-  const maps = (window as Window & { google?: { maps: Window["google"] extends infer _ ? never : never } }).google;
-  return maps;
-}
 
 function loadMaps(): Promise<void> {
   if (window.google?.maps) return Promise.resolve();
