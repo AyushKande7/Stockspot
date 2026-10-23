@@ -24,7 +24,7 @@ const products: BasketProduct[] = [
     unit: "kg",
     listings: [
       { id: "rice-a", price: 90, quantity: 5, store: stores.a },
-      { id: "rice-b", price: 80, quantity: 5, store: stores.b },
+      { id: "rice-b", price: 110, quantity: 5, store: stores.b },
       { id: "rice-usd", price: 3, quantity: 5, store: stores.usd },
     ],
   },
@@ -47,8 +47,8 @@ describe("calculateBasketPlans", () => {
       { productId: "rice", quantity: 1 },
     ]).filter((plan) => plan.currency === "INR");
 
-    expect(inr?.lowestSplit?.total).toBe(135);
-    expect(inr?.lowestSplit?.stores.map((store) => store.id)).toEqual(["b"]);
+    expect(inr?.lowestSplit?.total).toBe(145);
+    expect(inr?.lowestSplit?.stores.map((store) => store.id)).toEqual(["b", "a"]);
   });
 
   test("does not combine prices denominated in different currencies", () => {
