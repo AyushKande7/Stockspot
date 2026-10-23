@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -21,6 +21,9 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, useAccountType } from "@/lib/use-session";
 import { deleteOwnAccount } from "@/lib/account.functions";
+import { formatStoreNumber, formatStorePrice } from "@/lib/money";
+import { StoreMap } from "@/components/StoreMap";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -47,6 +50,7 @@ type StoreRow = {
   website: string | null;
   latitude: number | null;
   longitude: number | null;
+  currency: string;
 };
 
 type ItemRow = {
@@ -163,7 +167,7 @@ function StoreDashboard({ userId }: { userId: string }) {
     queryFn: async (): Promise<StoreRow | null> => {
       const { data, error } = await supabase
         .from("stores")
-        .select("id, name, address, city, phone, opening_hours, contact_email, website, latitude, longitude")
+        .select("id, name, address, city, phone, opening_hours, contact_email, website, latitude, longitude, currency")
         .eq("owner_id", userId)
         .maybeSingle();
       if (error) throw error;
@@ -205,7 +209,12 @@ function StoreProfileForm({
       ? { lat: store.latitude, lng: store.longitude }
       : null,
   );
+  const [currency, setCurrency] = useState(store?.currency ?? "INR");
   const [busy, setBusy] = useState(false);
+  const mapPins = useMemo(
+    () => (coords ? [{ id: "selected-store", name: name || "Selected store", address, city, latitude: coords.lat, longitude: coords.lng }] : []),
+    [coords, name, address, city],
+  );
 
   function useMyLocation() {
     if (!navigator.geolocation) {
@@ -239,6 +248,7 @@ function StoreProfileForm({
       opening_hours: hours || null,
       latitude: coords?.lat ?? null,
       longitude: coords?.lng ?? null,
+      currency,
     };
     const saveResult = store
       ? await supabase.from("stores").update(payload).eq("id", store.id)
@@ -272,6 +282,20 @@ function StoreProfileForm({
           <Label htmlFor="store-address">Address</Label>
           <Input id="store-address" value={address} onChange={(e) => setAddress(e.target.value)} required />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="store-currency">Store currency</Label>
+          <Select value={currency} onValueChange={setCurrency}>
+            <SelectTrigger id="store-currency" aria-label="Store currency"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {[
+                ["INR", "INR · Indian rupee"], ["USD", "USD · US dollar"], ["EUR", "EUR · Euro"],
+                ["GBP", "GBP · British pound"], ["CAD", "CAD · Canadian dollar"], ["AUD", "AUD · Australian dollar"],
+                ["JPY", "JPY · Japanese yen"], ["CHF", "CHF · Swiss franc"], ["SGD", "SGD · Singapore dollar"],
+                ["NZD", "NZD · New Zealand dollar"], ["ZAR", "ZAR · South African rand"],
+              ].map(([code, label]) => <SelectItem key={code} value={code}>{label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="store-city">City</Label>
@@ -304,9 +328,10 @@ function StoreProfileForm({
             <MapPin className="size-4" /> Use my current location
           </Button>
           <span className="text-xs text-muted-foreground">
-            {coords ? `Pinned at ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : "Lets customers see how far you are"}
+            {coords ? `Pinned at ${formatStoreNumber(coords.lat)}, ${formatStoreNumber(coords.lng)}` : "Select your store on the map, or use your current location."}
           </span>
         </div>
+        <StoreMap stores={mapPins} selectable selectedLocation={coords} onLocationSelect={setCoords} />
         <Button type="submit" className="w-full" disabled={busy}>
           {busy ? "Saving…" : store ? "Save profile" : "Create store"}
         </Button>
@@ -457,7 +482,7 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{item.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {item.category} · {Number(item.price).toFixed(2)} per {item.unit}
+                    {item.category} · {formatStorePrice(Number(item.price), store.currency)} per {item.unit}
                   </p>
                 </div>
                 <ItemStockEditor item={item} onSaved={() => queryClient.invalidateQueries({ queryKey: key })} />
