@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, Globe, MapPin, Moon, Package, Search, ShoppingBasket, Sun } from "lucide-react";
+import { Clock, Globe, MapPin, Minus, Package, Plus, Search, ShoppingBasket, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,9 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import freshMarketImage from "@/assets/grocery-fresh-market.jpg";
+import { formatStorePrice } from "@/lib/money";
+import { calculateBasketPlans, type BasketProduct, type BasketSelection } from "@/lib/smart-basket";
+import { MapViewToggle, StoreMap, type StorePin } from "@/components/StoreMap";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -42,6 +45,7 @@ type StoreInfo = {
   website: string | null;
   latitude: number | null;
   longitude: number | null;
+  currency: string;
 };
 
 type StockListing = {
@@ -60,6 +64,7 @@ type ProductGroup = {
   name: string;
   category: string;
   unit: string;
+  currency: string;
   listings: StockListing[];
 };
 
@@ -93,7 +98,8 @@ function getCategory(listing: StockListing) {
 function groupListings(listings: StockListing[]): ProductGroup[] {
   const groups = new Map<string, ProductGroup>();
   for (const listing of listings) {
-    const id = `${listing.name.trim().toLowerCase()}|${listing.unit.trim().toLowerCase()}`;
+    const currency = listing.stores?.currency ?? "INR";
+    const id = `${listing.name.trim().toLowerCase()}|${listing.unit.trim().toLowerCase()}|${currency}`;
     const existing = groups.get(id);
     if (existing) {
       existing.listings.push(listing);
@@ -103,6 +109,7 @@ function groupListings(listings: StockListing[]): ProductGroup[] {
         name: listing.name,
         category: getCategory(listing),
         unit: listing.unit,
+        currency,
         listings: [listing],
       });
     }
@@ -118,18 +125,15 @@ function groupListings(listings: StockListing[]): ProductGroup[] {
 
 const CATEGORIES = ["All items", "Fresh produce", "Dairy & eggs", "Pantry staples", "Bakery", "Other"];
 const SUGGESTIONS = ["Milk", "Rice", "Tomatoes", "Eggs", "Bread", "Sugar"];
-const indianRupees = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  maximumFractionDigits: 2,
-});
-
 function Index() {
   const [term, setTerm] = useState("");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All items");
   const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [selections, setSelections] = useState<BasketSelection[]>([]);
+  const [showBasket, setShowBasket] = useState(false);
+  const [showMap, setShowMap] = useState(false);
 
   const results = useQuery({
     queryKey: ["storefront-catalogue", query],
@@ -137,7 +141,7 @@ function Index() {
       let request = supabase
         .from("inventory_items")
         .select(
-          "id, name, category, price, quantity, unit, stores(id, name, address, city, phone, opening_hours, contact_email, website, latitude, longitude)",
+          "id, name, category, price, quantity, unit, stores(id, name, address, city, phone, opening_hours, contact_email, website, latitude, longitude, currency)",
         )
         .order("quantity", { ascending: false })
         .limit(60);
@@ -145,6 +149,23 @@ function Index() {
       const { data, error } = await request;
       if (error) throw error;
       return (data ?? []) as unknown as StockListing[];
+    },
+  });
+
+  const storeLocations = useQuery({
+    queryKey: ["public-store-locations"],
+    queryFn: async (): Promise<StorePin[]> => {
+      const { data, error } = await supabase
+        .from("stores")
+        .select("id, name, address, city, latitude, longitude")
+        .not("latitude", "is", null)
+        .not("longitude", "is", null);
+      if (error) throw error;
+      return (data ?? []).map((store) => ({
+        ...store,
+        latitude: Number(store.latitude),
+        longitude: Number(store.longitude),
+      }));
     },
   });
 
@@ -168,6 +189,48 @@ function Index() {
   })).filter(
     (product) => category === "All items" || product.category === category,
   );
+
+  const basketProducts: BasketProduct[] = products.map((product) => ({
+    id: product.id,
+    name: product.name,
+    unit: product.unit,
+    listings: product.listings.map((listing) => ({
+      id: listing.id,
+      price: Number(listing.price),
+      quantity: Number(listing.quantity),
+      store: listing.stores
+        ? {
+            id: listing.stores.id,
+            name: listing.stores.name,
+            address: listing.stores.address,
+            city: listing.stores.city,
+            currency: listing.stores.currency ?? "INR",
+          }
+        : null,
+    })),
+  }));
+  const basketPlans = useMemo(() => calculateBasketPlans(basketProducts, selections), [basketProducts, selections]);
+  const chosenCount = selections.reduce((count, selection) => count + selection.quantity, 0);
+
+  function setProductQuantity(productId: string, quantity: number) {
+    setSelections((current) => {
+      const remaining = current.filter((selection) => selection.productId !== productId);
+      return quantity > 0 ? [...remaining, { productId, quantity }] : remaining;
+    });
+  }
+
+  function fillDemoBasket() {
+    const demo = basketProducts
+      .filter((product) => product.listings.some((listing) => listing.quantity > 0))
+      .slice(0, 3)
+      .map((product) => ({ productId: product.id, quantity: 1 }));
+    if (demo.length === 0) {
+      toast.error("There are no in-stock items to add yet.");
+      return;
+    }
+    setSelections(demo);
+    setShowBasket(true);
+  }
 
   function useCurrentLocation() {
     if (!navigator.geolocation) {
