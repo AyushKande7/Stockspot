@@ -40,6 +40,7 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [signupNotice, setSignupNotice] = useState(false);
+  const [forgotPassword, setForgotPassword] = useState(false);
 
   useEffect(() => {
     if (!loading && user) navigate({ to: "/dashboard", replace: true });
@@ -49,6 +50,15 @@ function AuthPage() {
     e.preventDefault();
     setBusy(true);
     try {
+      if (forgotPassword) {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) throw error;
+        toast.success("If an account exists, a reset link is on its way.");
+        setForgotPassword(false);
+        return;
+      }
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email,
@@ -105,7 +115,7 @@ function AuthPage() {
           </Tabs>
 
           <form onSubmit={submit} className="mt-6 space-y-4">
-            {mode === "signup" && (
+            {!forgotPassword && mode === "signup" && (
               <div className="space-y-2">
                 <Label htmlFor="fullName">
                   {accountType === "store_owner" ? "Your name" : "Full name"}
@@ -130,7 +140,7 @@ function AuthPage() {
                 required
               />
             </div>
-            <div className="space-y-2">
+            {!forgotPassword && <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Input
@@ -154,18 +164,22 @@ function AuthPage() {
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </Button>
               </div>
-            </div>
-            {mode === "signin" && <Button asChild type="button" variant="link" size="sm" className="h-auto px-0">
-              <Link to="/reset-password">Forgot password?</Link>
+            </div>}
+            {!forgotPassword && mode === "signin" && <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => setForgotPassword(true)}>
+              Forgot password?
             </Button>}
             <Button type="submit" className="w-full" disabled={busy || (mode === "signup" && password.length < 6)}>
               {busy
                 ? "Please wait…"
+                : forgotPassword
+                  ? "Send reset link"
                 : mode === "signup"
                   ? `Create ${accountType === "store_owner" ? "store" : "customer"} account`
                   : "Sign in"}
             </Button>
           </form>
+
+          {forgotPassword && <Button type="button" variant="ghost" className="mt-3 w-full" onClick={() => setForgotPassword(false)}>Back to sign in</Button>}
 
           {signupNotice && mode === "signup" && (
             <p role="status" className="mt-4 border-l-2 border-primary pl-3 text-sm text-muted-foreground">
@@ -174,13 +188,14 @@ function AuthPage() {
           )}
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
+            {forgotPassword ? null : (mode === "signin" ? "New here?" : "Already have an account?")}{" "}
             <button
               type="button"
               className="font-medium text-primary underline-offset-4 hover:underline"
               onClick={() => {
                 setMode(mode === "signin" ? "signup" : "signin");
                 setSignupNotice(false);
+                setForgotPassword(false);
               }}
             >
               {mode === "signin" ? "Create an account" : "Sign in"}
