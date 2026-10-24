@@ -591,3 +591,100 @@ function ProductCard({ product, selectedQuantity, onQuantityChange }: { product:
     </article>
   );
 }
+
+function BasketPanel({
+  selections,
+  products,
+  plans,
+  onRemove,
+  onDemo,
+  onClose,
+}: {
+  selections: BasketSelection[];
+  products: BasketProduct[];
+  plans: ReturnType<typeof calculateBasketPlans>;
+  onRemove: (productId: string) => void;
+  onDemo: () => void;
+  onClose: () => void;
+}) {
+  const selectedProducts = selections.flatMap((selection) => {
+    const product = products.find((entry) => entry.id === selection.productId);
+    return product ? [{ product, quantity: selection.quantity }] : [];
+  });
+
+  return (
+    <section className="mt-5 border-y border-border py-5" aria-label="Smart Basket">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase text-primary">Plan a store visit</p>
+          <h3 className="mt-1 font-display text-xl font-bold">Smart Basket</h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={onDemo}>Fill demo basket</Button>
+          <Button type="button" size="sm" variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {selectedProducts.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">Choose items below to compare where your whole basket fits.</p>
+      ) : (
+        <>
+          <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            {selectedProducts.map(({ product, quantity }) => (
+              <li key={product.id} className="flex items-center gap-2">
+                <span>{quantity} × {product.name}</span>
+                <Button type="button" size="icon" variant="ghost" aria-label={`Remove ${product.name} from basket`} onClick={() => onRemove(product.id)}>
+                  <Minus className="size-3.5" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {plans.length === 0 ? (
+            <p className="mt-4 border-l-2 border-warning pl-3 text-sm text-muted-foreground">
+              No store can fill every requested amount right now. Reduce a quantity or remove an item.
+            </p>
+          ) : (
+            <div className="mt-5 grid gap-5 border-t border-border pt-4 lg:grid-cols-2">
+              {plans.map((plan) => (
+                <div key={plan.currency} className="min-w-0">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">{plan.currency} · matching stock only</p>
+                  {!plan.bestSingleStore && !plan.lowestSplit ? (
+                    <p className="mt-2 text-sm text-muted-foreground">No complete {plan.currency} basket is available.</p>
+                  ) : (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {plan.bestSingleStore && <BasketPlanSummary title="One store" description={plan.bestSingleStore.stores[0]?.name ?? "Store"} plan={plan.bestSingleStore} />}
+                      {plan.lowestSplit && <BasketPlanSummary title="Split plan" description={`${plan.lowestSplit.stores.length} ${plan.lowestSplit.stores.length === 1 ? "store" : "stores"}`} plan={plan.lowestSplit} />}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {plans.length > 1 && <p className="mt-3 text-xs text-muted-foreground">Each currency is compared separately. No exchange rates are assumed.</p>}
+        </>
+      )}
+    </section>
+  );
+}
+
+function BasketPlanSummary({ title, description, plan }: { title: string; description: string; plan: NonNullable<ReturnType<typeof calculateBasketPlans>[number]["bestSingleStore"]> }) {
+  return (
+    <div className="border border-border bg-card p-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">{title}</p>
+          <p className="break-words text-xs text-muted-foreground">{description}</p>
+        </div>
+        <p className="shrink-0 font-display text-lg font-bold text-primary">{formatStorePrice(plan.total, plan.currency)}</p>
+      </div>
+      <ul className="mt-3 space-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
+        {plan.lines.map((line) => (
+          <li key={line.productId} className="flex justify-between gap-2">
+            <span className="min-w-0 break-words">{line.quantity} × {line.name} · {line.store.name}</span>
+            <span className="shrink-0 tabular-nums">{formatStorePrice(line.lineTotal, plan.currency)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
