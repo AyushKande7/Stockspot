@@ -136,7 +136,7 @@ function Index() {
   const [showMap, setShowMap] = useState(false);
 
   const results = useQuery({
-    queryKey: ["storefront-catalogue", query],
+    queryKey: ["storefront-catalogue"],
     queryFn: async (): Promise<StockListing[]> => {
       let request = supabase
         .from("inventory_items")
@@ -144,8 +144,7 @@ function Index() {
           "id, name, category, price, quantity, unit, stores(id, name, address, city, phone, opening_hours, contact_email, website, latitude, longitude, currency)",
         )
         .order("quantity", { ascending: false })
-        .limit(60);
-      if (query.trim()) request = request.ilike("name", `%${query.trim()}%`);
+        .limit(500);
       const { data, error } = await request;
       if (error) throw error;
       return (data ?? []) as unknown as StockListing[];
@@ -176,7 +175,7 @@ function Index() {
         ? distanceKm(here, { lat: r.stores.latitude, lng: r.stores.longitude })
         : null,
   }));
-  const products = groupListings(withDistance).map((product) => ({
+  const allProducts = groupListings(withDistance).map((product) => ({
     ...product,
     listings: here
       ? [...product.listings].sort((a, b) => {
@@ -186,11 +185,14 @@ function Index() {
           return a.distanceKm - b.distanceKm;
         })
       : product.listings,
-  })).filter(
-    (product) => category === "All items" || product.category === category,
-  );
+  }));
+  const products = allProducts.filter((product) => {
+    const matchesTerm = !query.trim() || product.name.toLowerCase().includes(query.trim().toLowerCase());
+    const matchesCategory = category === "All items" || product.category === category;
+    return matchesTerm && matchesCategory;
+  });
 
-  const basketProducts: BasketProduct[] = products.map((product) => ({
+  const basketProducts: BasketProduct[] = allProducts.map((product) => ({
     id: product.id,
     name: product.name,
     unit: product.unit,
@@ -231,6 +233,8 @@ function Index() {
     setSelections(demo);
     setShowBasket(true);
   }
+
+  const mapStores = storeLocations.data ?? [];
 
   function useCurrentLocation() {
     if (!navigator.geolocation) {
@@ -331,6 +335,12 @@ function Index() {
               {query ? `Results for “${query}”` : "Groceries near you"}
             </h2>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant={showBasket ? "secondary" : "outline"} size="sm" onClick={() => setShowBasket((open) => !open)}>
+            <ShoppingBasket className="size-4" />
+            Basket{chosenCount > 0 ? ` · ${chosenCount}` : ""}
+          </Button>
+          <MapViewToggle map={showMap} onChange={setShowMap} />
           <Button
             type="button"
             variant={here ? "secondary" : "outline"}
@@ -341,6 +351,7 @@ function Index() {
             <MapPin className="size-4" />
             {gettingLocation ? "Finding location…" : here ? "Using my location" : "Use my location"}
           </Button>
+          </div>
         </div>
 
         <div className="mt-5 flex gap-2 overflow-x-auto pb-2" aria-label="Grocery categories">
@@ -358,12 +369,39 @@ function Index() {
           ))}
         </div>
 
+        {showBasket && (
+          <BasketPanel
+            selections={selections}
+            products={basketProducts}
+            plans={basketPlans}
+            onRemove={(productId) => setProductQuantity(productId, 0)}
+            onDemo={fillDemoBasket}
+            onClose={() => setShowBasket(false)}
+          />
+        )}
+
+        {showMap && (
+          <section className="mt-4 space-y-3" aria-label="Store map">
+            <StoreMap stores={mapStores} />
+            <div className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+              {mapStores.map((store) => (
+                <p key={store.id} className="flex gap-2 text-muted-foreground">
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
+                  <span><span className="font-medium text-foreground">{store.name}</span> · {[store.address, store.city].filter(Boolean).join(", ")}</span>
+                </p>
+              ))}
+              {mapStores.length === 0 && <p className="text-sm text-muted-foreground">Store addresses are shown with each item when locations have not been pinned yet.</p>}
+            </div>
+          </section>
+        )}
+
         {results.isPending ? (
           <p className="py-14 text-center text-sm text-muted-foreground">Checking nearby shelves…</p>
         ) : results.isError ? (
-          <p className="py-14 text-center text-sm text-muted-foreground">
-            Store listings could not be loaded. Please try again in a moment.
-          </p>
+          <div className="py-14 text-center">
+            <p className="text-sm text-muted-foreground">Store listings couldn’t load. Check your connection and try again.</p>
+            <Button type="button" variant="outline" className="mt-3" onClick={() => void results.refetch()}>Try again</Button>
+          </div>
         ) : products.length === 0 ? (
           <div className="py-14 text-center">
             <Package className="mx-auto size-8 text-muted-foreground" />
@@ -400,8 +438,13 @@ function Index() {
               )}
             </div>
             <div className="grid grid-cols-1 items-stretch gap-4 py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                {products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    selectedQuantity={selections.find((selection) => selection.productId === product.id)?.quantity ?? 0}
+                    onQuantityChange={(quantity) => setProductQuantity(product.id, quantity)}
+                  />
               ))}
             </div>
           </>
@@ -420,7 +463,7 @@ function Index() {
   );
 }
 
-function ProductCard({ product }: { product: ProductGroup }) {
+function ProductCard({ product, selectedQuantity, onQuantityChange }: { product: ProductGroup; selectedQuantity: number; onQuantityChange: (quantity: number) => void }) {
   const [showAll, setShowAll] = useState(false);
   const lowestPrice =
     [...product.listings]
@@ -457,7 +500,7 @@ function ProductCard({ product }: { product: ProductGroup }) {
           </p>
           {lowestPrice && lowestPrice.quantity > 0 && (
             <p className="font-display text-xl font-bold text-primary">
-              {indianRupees.format(Number(lowestPrice.price))}
+              {formatStorePrice(Number(lowestPrice.price), product.currency)}
             </p>
           )}
         </div>
@@ -472,7 +515,7 @@ function ProductCard({ product }: { product: ProductGroup }) {
                   {listing.stores?.name ?? "Store"}
                 </p>
                 <p className="shrink-0 text-right font-semibold tabular-nums">
-                  {indianRupees.format(Number(listing.price))}
+                  {formatStorePrice(Number(listing.price), listing.stores?.currency ?? product.currency)}
                 </p>
               </div>
               <p className="mt-1 flex items-start gap-1.5 break-words text-xs text-muted-foreground">
@@ -534,6 +577,18 @@ function ProductCard({ product }: { product: ProductGroup }) {
             {showAll ? "Show fewer stores" : `Compare all ${product.listings.length} stores`}
           </Button>
         )}
+        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
+          <span className="text-xs text-muted-foreground">Add to basket</span>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="icon" aria-label={`Remove one ${product.name}`} disabled={selectedQuantity === 0} onClick={() => onQuantityChange(selectedQuantity - 1)}>
+              <Minus className="size-4" />
+            </Button>
+            <span className="w-6 text-center text-sm font-semibold tabular-nums" aria-live="polite">{selectedQuantity}</span>
+            <Button type="button" variant="secondary" size="icon" aria-label={`Add one ${product.name}`} onClick={() => onQuantityChange(selectedQuantity + 1)}>
+              <Plus className="size-4" />
+            </Button>
+          </div>
+        </div>
       </div>
     </article>
   );
