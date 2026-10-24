@@ -667,7 +667,7 @@ function BasketPanel({
   );
 }
 
-function BasketPlanSummary({ title, description, plan }: { title: string; description: string; plan: NonNullable<ReturnType<typeof calculateBasketPlans>[number]["bestSingleStore"]> }) {
+function BasketPlanSummary({ title, description, plan }: { title: string; description: string; plan: NonNullable<ReturnType<typeof calculateBasketPlans>[number]["bestSingleStore"]> | NonNullable<ReturnType<typeof calculateBasketPlans>[number]["lowestSplit"]> }) {
   return (
     <div className="border border-border bg-card p-3">
       <div className="flex items-baseline justify-between gap-2">
