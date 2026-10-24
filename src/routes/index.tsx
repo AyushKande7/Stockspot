@@ -64,7 +64,6 @@ type ProductGroup = {
   name: string;
   category: string;
   unit: string;
-  currency: string;
   listings: StockListing[];
 };
 
@@ -98,8 +97,7 @@ function getCategory(listing: StockListing) {
 function groupListings(listings: StockListing[]): ProductGroup[] {
   const groups = new Map<string, ProductGroup>();
   for (const listing of listings) {
-    const currency = listing.stores?.currency ?? "INR";
-    const id = `${listing.name.trim().toLowerCase()}|${listing.unit.trim().toLowerCase()}|${currency}`;
+    const id = `${listing.name.trim().toLowerCase()}|${listing.unit.trim().toLowerCase()}`;
     const existing = groups.get(id);
     if (existing) {
       existing.listings.push(listing);
@@ -109,7 +107,6 @@ function groupListings(listings: StockListing[]): ProductGroup[] {
         name: listing.name,
         category: getCategory(listing),
         unit: listing.unit,
-        currency,
         listings: [listing],
       });
     }
@@ -118,6 +115,7 @@ function groupListings(listings: StockListing[]): ProductGroup[] {
     ...group,
     listings: [...group.listings].sort((a, b) => {
       if ((a.quantity > 0) !== (b.quantity > 0)) return a.quantity > 0 ? -1 : 1;
+      if ((a.stores?.currency ?? "INR") !== (b.stores?.currency ?? "INR")) return 0;
       return Number(a.price) - Number(b.price);
     }),
   }));
@@ -136,7 +134,7 @@ function Index() {
   const [showMap, setShowMap] = useState(false);
 
   const results = useQuery({
-    queryKey: ["storefront-catalogue", query],
+    queryKey: ["storefront-catalogue"],
     queryFn: async (): Promise<StockListing[]> => {
       let request = supabase
         .from("inventory_items")
@@ -144,8 +142,7 @@ function Index() {
           "id, name, category, price, quantity, unit, stores(id, name, address, city, phone, opening_hours, contact_email, website, latitude, longitude, currency)",
         )
         .order("quantity", { ascending: false })
-        .limit(60);
-      if (query.trim()) request = request.ilike("name", `%${query.trim()}%`);
+        .limit(500);
       const { data, error } = await request;
       if (error) throw error;
       return (data ?? []) as unknown as StockListing[];
@@ -176,7 +173,7 @@ function Index() {
         ? distanceKm(here, { lat: r.stores.latitude, lng: r.stores.longitude })
         : null,
   }));
-  const products = groupListings(withDistance).map((product) => ({
+  const allProducts = groupListings(withDistance).map((product) => ({
     ...product,
     listings: here
       ? [...product.listings].sort((a, b) => {
@@ -186,11 +183,14 @@ function Index() {
           return a.distanceKm - b.distanceKm;
         })
       : product.listings,
-  })).filter(
-    (product) => category === "All items" || product.category === category,
-  );
+  }));
+  const products = allProducts.filter((product) => {
+    const matchesTerm = !query.trim() || product.name.toLowerCase().includes(query.trim().toLowerCase());
+    const matchesCategory = category === "All items" || product.category === category;
+    return matchesTerm && matchesCategory;
+  });
 
-  const basketProducts: BasketProduct[] = products.map((product) => ({
+  const basketProducts: BasketProduct[] = allProducts.map((product) => ({
     id: product.id,
     name: product.name,
     unit: product.unit,
@@ -231,6 +231,8 @@ function Index() {
     setSelections(demo);
     setShowBasket(true);
   }
+
+  const mapStores = storeLocations.data ?? [];
 
   function useCurrentLocation() {
     if (!navigator.geolocation) {
@@ -331,6 +333,12 @@ function Index() {
               {query ? `Results for “${query}”` : "Groceries near you"}
             </h2>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant={showBasket ? "secondary" : "outline"} size="sm" onClick={() => setShowBasket((open) => !open)}>
+            <ShoppingBasket className="size-4" />
+            Basket{chosenCount > 0 ? ` · ${chosenCount}` : ""}
+          </Button>
+          <MapViewToggle map={showMap} onChange={setShowMap} />
           <Button
             type="button"
             variant={here ? "secondary" : "outline"}
@@ -341,6 +349,7 @@ function Index() {
             <MapPin className="size-4" />
             {gettingLocation ? "Finding location…" : here ? "Using my location" : "Use my location"}
           </Button>
+          </div>
         </div>
 
         <div className="mt-5 flex gap-2 overflow-x-auto pb-2" aria-label="Grocery categories">
@@ -358,12 +367,39 @@ function Index() {
           ))}
         </div>
 
+        {showBasket && (
+          <BasketPanel
+            selections={selections}
+            products={basketProducts}
+            plans={basketPlans}
+            onRemove={(productId) => setProductQuantity(productId, 0)}
+            onDemo={fillDemoBasket}
+            onClose={() => setShowBasket(false)}
+          />
+        )}
+
+        {showMap && (
+          <section className="mt-4 space-y-3" aria-label="Store map">
+            <StoreMap stores={mapStores} />
+            <div className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+              {mapStores.map((store) => (
+                <p key={store.id} className="flex gap-2 text-muted-foreground">
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
+                  <span><span className="font-medium text-foreground">{store.name}</span> · {[store.address, store.city].filter(Boolean).join(", ")}</span>
+                </p>
+              ))}
+              {mapStores.length === 0 && <p className="text-sm text-muted-foreground">Store addresses are shown with each item when locations have not been pinned yet.</p>}
+            </div>
+          </section>
+        )}
+
         {results.isPending ? (
           <p className="py-14 text-center text-sm text-muted-foreground">Checking nearby shelves…</p>
         ) : results.isError ? (
-          <p className="py-14 text-center text-sm text-muted-foreground">
-            Store listings could not be loaded. Please try again in a moment.
-          </p>
+          <div className="py-14 text-center">
+            <p className="text-sm text-muted-foreground">Store listings couldn’t load. Check your connection and try again.</p>
+            <Button type="button" variant="outline" className="mt-3" onClick={() => void results.refetch()}>Try again</Button>
+          </div>
         ) : products.length === 0 ? (
           <div className="py-14 text-center">
             <Package className="mx-auto size-8 text-muted-foreground" />
@@ -400,8 +436,13 @@ function Index() {
               )}
             </div>
             <div className="grid grid-cols-1 items-stretch gap-4 py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                {products.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    selectedQuantity={selections.find((selection) => selection.productId === product.id)?.quantity ?? 0}
+                    onQuantityChange={(quantity) => setProductQuantity(product.id, quantity)}
+                  />
               ))}
             </div>
           </>
@@ -420,12 +461,12 @@ function Index() {
   );
 }
 
-function ProductCard({ product }: { product: ProductGroup }) {
+function ProductCard({ product, selectedQuantity, onQuantityChange }: { product: ProductGroup; selectedQuantity: number; onQuantityChange: (quantity: number) => void }) {
   const [showAll, setShowAll] = useState(false);
-  const lowestPrice =
-    [...product.listings]
-      .filter((listing) => listing.quantity > 0)
-      .sort((a, b) => Number(a.price) - Number(b.price))[0] ?? product.listings[0];
+  const currencies = [...new Set(product.listings.map((listing) => listing.stores?.currency ?? "INR"))];
+  const lowestPrice = currencies.length === 1
+    ? [...product.listings].filter((listing) => listing.quantity > 0).sort((a, b) => Number(a.price) - Number(b.price))[0] ?? product.listings[0]
+    : null;
   const visibleListings = showAll ? product.listings : product.listings.slice(0, 3);
 
   return (
@@ -452,12 +493,12 @@ function ProductCard({ product }: { product: ProductGroup }) {
       </div>
       <div className="flex flex-1 flex-col p-4">
         <div className="mb-3 flex items-baseline justify-between gap-2">
-          <p className="text-xs font-medium uppercase text-muted-foreground">
-            {lowestPrice && lowestPrice.quantity > 0 ? "Best in-stock price" : "Store prices"}
+            <p className="text-xs font-medium uppercase text-muted-foreground">
+              {currencies.length > 1 ? "Prices in local currencies" : lowestPrice && lowestPrice.quantity > 0 ? "Best in-stock price" : "Store prices"}
           </p>
           {lowestPrice && lowestPrice.quantity > 0 && (
             <p className="font-display text-xl font-bold text-primary">
-              {indianRupees.format(Number(lowestPrice.price))}
+              {formatStorePrice(Number(lowestPrice.price), lowestPrice.stores?.currency ?? "INR")}
             </p>
           )}
         </div>
@@ -472,7 +513,7 @@ function ProductCard({ product }: { product: ProductGroup }) {
                   {listing.stores?.name ?? "Store"}
                 </p>
                 <p className="shrink-0 text-right font-semibold tabular-nums">
-                  {indianRupees.format(Number(listing.price))}
+                  {formatStorePrice(Number(listing.price), listing.stores?.currency ?? product.currency)}
                 </p>
               </div>
               <p className="mt-1 flex items-start gap-1.5 break-words text-xs text-muted-foreground">
@@ -534,7 +575,116 @@ function ProductCard({ product }: { product: ProductGroup }) {
             {showAll ? "Show fewer stores" : `Compare all ${product.listings.length} stores`}
           </Button>
         )}
+        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
+          <span className="text-xs text-muted-foreground">Add to basket</span>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="icon" aria-label={`Remove one ${product.name}`} disabled={selectedQuantity === 0} onClick={() => onQuantityChange(selectedQuantity - 1)}>
+              <Minus className="size-4" />
+            </Button>
+            <span className="w-6 text-center text-sm font-semibold tabular-nums" aria-live="polite">{selectedQuantity}</span>
+            <Button type="button" variant="secondary" size="icon" aria-label={`Add one ${product.name}`} onClick={() => onQuantityChange(selectedQuantity + 1)}>
+              <Plus className="size-4" />
+            </Button>
+          </div>
+        </div>
       </div>
     </article>
+  );
+}
+
+function BasketPanel({
+  selections,
+  products,
+  plans,
+  onRemove,
+  onDemo,
+  onClose,
+}: {
+  selections: BasketSelection[];
+  products: BasketProduct[];
+  plans: ReturnType<typeof calculateBasketPlans>;
+  onRemove: (productId: string) => void;
+  onDemo: () => void;
+  onClose: () => void;
+}) {
+  const selectedProducts = selections.flatMap((selection) => {
+    const product = products.find((entry) => entry.id === selection.productId);
+    return product ? [{ product, quantity: selection.quantity }] : [];
+  });
+
+  return (
+    <section className="mt-5 border-y border-border py-5" aria-label="Smart Basket">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase text-primary">Plan a store visit</p>
+          <h3 className="mt-1 font-display text-xl font-bold">Smart Basket</h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={onDemo}>Fill demo basket</Button>
+          <Button type="button" size="sm" variant="ghost" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+
+      {selectedProducts.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">Choose items below to compare where your whole basket fits.</p>
+      ) : (
+        <>
+          <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            {selectedProducts.map(({ product, quantity }) => (
+              <li key={product.id} className="flex items-center gap-2">
+                <span>{quantity} × {product.name}</span>
+                <Button type="button" size="icon" variant="ghost" aria-label={`Remove ${product.name} from basket`} onClick={() => onRemove(product.id)}>
+                  <Minus className="size-3.5" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {plans.length === 0 ? (
+            <p className="mt-4 border-l-2 border-warning pl-3 text-sm text-muted-foreground">
+              No store can fill every requested amount right now. Reduce a quantity or remove an item.
+            </p>
+          ) : (
+            <div className="mt-5 grid gap-5 border-t border-border pt-4 lg:grid-cols-2">
+              {plans.map((plan) => (
+                <div key={plan.currency} className="min-w-0">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">{plan.currency} · matching stock only</p>
+                  {!plan.bestSingleStore && !plan.lowestSplit ? (
+                    <p className="mt-2 text-sm text-muted-foreground">No complete {plan.currency} basket is available.</p>
+                  ) : (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {plan.bestSingleStore && <BasketPlanSummary title="One store" description={plan.bestSingleStore.stores[0]?.name ?? "Store"} plan={plan.bestSingleStore} />}
+                      {plan.lowestSplit && <BasketPlanSummary title="Split plan" description={`${plan.lowestSplit.stores.length} ${plan.lowestSplit.stores.length === 1 ? "store" : "stores"}`} plan={plan.lowestSplit} />}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {plans.length > 1 && <p className="mt-3 text-xs text-muted-foreground">Each currency is compared separately. No exchange rates are assumed.</p>}
+        </>
+      )}
+    </section>
+  );
+}
+
+function BasketPlanSummary({ title, description, plan }: { title: string; description: string; plan: NonNullable<ReturnType<typeof calculateBasketPlans>[number]["bestSingleStore"]> | NonNullable<ReturnType<typeof calculateBasketPlans>[number]["lowestSplit"]> }) {
+  return (
+    <div className="border border-border bg-card p-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">{title}</p>
+          <p className="break-words text-xs text-muted-foreground">{description}</p>
+        </div>
+        <p className="shrink-0 font-display text-lg font-bold text-primary">{formatStorePrice(plan.total, plan.currency)}</p>
+      </div>
+      <ul className="mt-3 space-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
+        {plan.lines.map((line) => (
+          <li key={line.productId} className="flex justify-between gap-2">
+            <span className="min-w-0 break-words">{line.quantity} × {line.name} · {line.store.name}</span>
+            <span className="shrink-0 tabular-nums">{formatStorePrice(line.lineTotal, plan.currency)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
