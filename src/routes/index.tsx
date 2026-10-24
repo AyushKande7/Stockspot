@@ -64,7 +64,6 @@ type ProductGroup = {
   name: string;
   category: string;
   unit: string;
-  currency: string;
   listings: StockListing[];
 };
 
@@ -98,8 +97,7 @@ function getCategory(listing: StockListing) {
 function groupListings(listings: StockListing[]): ProductGroup[] {
   const groups = new Map<string, ProductGroup>();
   for (const listing of listings) {
-    const currency = listing.stores?.currency ?? "INR";
-    const id = `${listing.name.trim().toLowerCase()}|${listing.unit.trim().toLowerCase()}|${currency}`;
+    const id = `${listing.name.trim().toLowerCase()}|${listing.unit.trim().toLowerCase()}`;
     const existing = groups.get(id);
     if (existing) {
       existing.listings.push(listing);
@@ -109,7 +107,6 @@ function groupListings(listings: StockListing[]): ProductGroup[] {
         name: listing.name,
         category: getCategory(listing),
         unit: listing.unit,
-        currency,
         listings: [listing],
       });
     }
@@ -118,6 +115,7 @@ function groupListings(listings: StockListing[]): ProductGroup[] {
     ...group,
     listings: [...group.listings].sort((a, b) => {
       if ((a.quantity > 0) !== (b.quantity > 0)) return a.quantity > 0 ? -1 : 1;
+      if ((a.stores?.currency ?? "INR") !== (b.stores?.currency ?? "INR")) return 0;
       return Number(a.price) - Number(b.price);
     }),
   }));
@@ -465,10 +463,10 @@ function Index() {
 
 function ProductCard({ product, selectedQuantity, onQuantityChange }: { product: ProductGroup; selectedQuantity: number; onQuantityChange: (quantity: number) => void }) {
   const [showAll, setShowAll] = useState(false);
-  const lowestPrice =
-    [...product.listings]
-      .filter((listing) => listing.quantity > 0)
-      .sort((a, b) => Number(a.price) - Number(b.price))[0] ?? product.listings[0];
+  const currencies = [...new Set(product.listings.map((listing) => listing.stores?.currency ?? "INR"))];
+  const lowestPrice = currencies.length === 1
+    ? [...product.listings].filter((listing) => listing.quantity > 0).sort((a, b) => Number(a.price) - Number(b.price))[0] ?? product.listings[0]
+    : null;
   const visibleListings = showAll ? product.listings : product.listings.slice(0, 3);
 
   return (
@@ -495,12 +493,12 @@ function ProductCard({ product, selectedQuantity, onQuantityChange }: { product:
       </div>
       <div className="flex flex-1 flex-col p-4">
         <div className="mb-3 flex items-baseline justify-between gap-2">
-          <p className="text-xs font-medium uppercase text-muted-foreground">
-            {lowestPrice && lowestPrice.quantity > 0 ? "Best in-stock price" : "Store prices"}
+            <p className="text-xs font-medium uppercase text-muted-foreground">
+              {currencies.length > 1 ? "Prices in local currencies" : lowestPrice && lowestPrice.quantity > 0 ? "Best in-stock price" : "Store prices"}
           </p>
           {lowestPrice && lowestPrice.quantity > 0 && (
             <p className="font-display text-xl font-bold text-primary">
-              {formatStorePrice(Number(lowestPrice.price), product.currency)}
+              {formatStorePrice(Number(lowestPrice.price), lowestPrice.stores?.currency ?? "INR")}
             </p>
           )}
         </div>
