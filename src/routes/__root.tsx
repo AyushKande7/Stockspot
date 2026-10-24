@@ -8,11 +8,14 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { useState } from "react";
+import { WifiOff } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 
 function NotFoundComponent() {
   return (
@@ -124,6 +127,7 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
@@ -134,10 +138,36 @@ function RootComponent() {
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
 
+  useEffect(() => {
+    const updateConnection = () => setOffline(!navigator.onLine);
+    updateConnection();
+    window.addEventListener("offline", updateConnection);
+    window.addEventListener("online", updateConnection);
+    return () => {
+      window.removeEventListener("offline", updateConnection);
+      window.removeEventListener("online", updateConnection);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!offline) {
+      void queryClient.refetchQueries({ type: "active" });
+      void router.invalidate();
+    }
+  }, [offline, queryClient, router]);
+
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      {offline && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 px-5 backdrop-blur-sm" role="alert">
+        <div className="max-w-sm text-center">
+          <span className="mx-auto flex size-12 items-center justify-center rounded-md bg-muted text-muted-foreground"><WifiOff className="size-5" /></span>
+          <h1 className="mt-4 font-display text-2xl font-bold">You’re offline</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Check your internet connection. Stock and prices will refresh when you’re back online.</p>
+          <Button type="button" className="mt-5" onClick={() => window.location.reload()}>Try again</Button>
+        </div>
+      </div>}
       <Toaster position="top-center" />
     </QueryClientProvider>
   );

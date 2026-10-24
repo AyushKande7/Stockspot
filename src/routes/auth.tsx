@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ShoppingBasket, Store, User } from "lucide-react";
+import { Eye, EyeOff, ShoppingBasket, Store, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,8 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [signupNotice, setSignupNotice] = useState(false);
 
   useEffect(() => {
     if (!loading && user) navigate({ to: "/dashboard", replace: true });
@@ -57,7 +59,9 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        toast.success("Account created. Welcome!");
+        setSignupNotice(true);
+        toast.success("Check your email to confirm your account.");
+        return;
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -128,17 +132,33 @@ function AuthPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 6 characters"
-                minLength={6}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                  minLength={6}
+                  required
+                  className="pr-12"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </Button>
+              </div>
             </div>
-            <Button type="submit" className="w-full" disabled={busy}>
+            {mode === "signin" && <Button asChild type="button" variant="link" size="sm" className="h-auto px-0">
+              <Link to="/reset-password">Forgot password?</Link>
+            </Button>}
+            <Button type="submit" className="w-full" disabled={busy || (mode === "signup" && password.length < 6)}>
               {busy
                 ? "Please wait…"
                 : mode === "signup"
@@ -147,12 +167,21 @@ function AuthPage() {
             </Button>
           </form>
 
+          {signupNotice && mode === "signup" && (
+            <p role="status" className="mt-4 border-l-2 border-primary pl-3 text-sm text-muted-foreground">
+              Your account is ready. Confirm the link sent to your email, then sign in.
+            </p>
+          )}
+
           <p className="mt-4 text-center text-sm text-muted-foreground">
             {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
             <button
               type="button"
               className="font-medium text-primary underline-offset-4 hover:underline"
-              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+              onClick={() => {
+                setMode(mode === "signin" ? "signup" : "signin");
+                setSignupNotice(false);
+              }}
             >
               {mode === "signin" ? "Create an account" : "Sign in"}
             </button>
