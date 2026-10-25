@@ -81,11 +81,12 @@ export function calculateBasketPlans(
     .filter(Boolean)
     .sort();
 
-  return currencies.map((currency) => {
+  return currencies.flatMap((currency) => {
     const currencyItems = requested.map((item) => ({
       ...item,
       offers: item.offers.filter((offer) => offer.store?.currency === currency),
     }));
+    if (currencyItems.some((item) => item.offers.length === 0)) return [];
 
     const splitLines: BasketPlanLine[] = [];
     let splitPossible = true;
@@ -149,6 +150,6 @@ export function calculateBasketPlans(
         }
       : null;
 
-    return { currency, bestSingleStore: singleStorePlans[0] ?? null, lowestSplit };
+    return [{ currency, bestSingleStore: singleStorePlans[0] ?? null, lowestSplit }];
   });
 }
