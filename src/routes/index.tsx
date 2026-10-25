@@ -441,6 +441,7 @@ function Index() {
                     key={product.id}
                     product={product}
                     selectedQuantity={selections.find((selection) => selection.productId === product.id)?.quantity ?? 0}
+                    maxAvailable={Math.max(0, ...product.listings.map((listing) => listing.quantity))}
                     onQuantityChange={(quantity) => setProductQuantity(product.id, quantity)}
                   />
               ))}
@@ -461,7 +462,7 @@ function Index() {
   );
 }
 
-function ProductCard({ product, selectedQuantity, onQuantityChange }: { product: ProductGroup; selectedQuantity: number; onQuantityChange: (quantity: number) => void }) {
+function ProductCard({ product, selectedQuantity, maxAvailable, onQuantityChange }: { product: ProductGroup; selectedQuantity: number; maxAvailable: number; onQuantityChange: (quantity: number) => void }) {
   const [showAll, setShowAll] = useState(false);
   const currencies = [...new Set(product.listings.map((listing) => listing.stores?.currency ?? "INR"))];
   const lowestPrice = currencies.length === 1
@@ -582,7 +583,7 @@ function ProductCard({ product, selectedQuantity, onQuantityChange }: { product:
               <Minus className="size-4" />
             </Button>
             <span className="w-6 text-center text-sm font-semibold tabular-nums" aria-live="polite">{selectedQuantity}</span>
-            <Button type="button" variant="secondary" size="icon" aria-label={`Add one ${product.name}`} onClick={() => onQuantityChange(selectedQuantity + 1)}>
+            <Button type="button" variant="secondary" size="icon" aria-label={`Add one ${product.name}`} disabled={selectedQuantity >= maxAvailable} onClick={() => onQuantityChange(selectedQuantity + 1)}>
               <Plus className="size-4" />
             </Button>
           </div>
