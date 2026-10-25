@@ -24,6 +24,7 @@ import { deleteOwnAccount } from "@/lib/account.functions";
 import { formatStoreNumber, formatStorePrice } from "@/lib/money";
 import { StoreMap } from "@/components/StoreMap";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { reportConnectionFailure } from "@/lib/connectivity";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -188,6 +189,16 @@ function StoreDashboard({ userId }: { userId: string }) {
   return <InventoryManager store={storeQuery.data} onSaved={refresh} />;
 }
 
+const CURRENCY_OPTIONS: Array<[string, string]> = [
+  ["AED", "UAE dirham"], ["AUD", "Australian dollar"], ["BDT", "Bangladeshi taka"], ["BRL", "Brazilian real"],
+  ["CAD", "Canadian dollar"], ["CHF", "Swiss franc"], ["CNY", "Chinese yuan"], ["EUR", "Euro"],
+  ["GBP", "British pound"], ["HKD", "Hong Kong dollar"], ["IDR", "Indonesian rupiah"], ["INR", "Indian rupee"],
+  ["JPY", "Japanese yen"], ["KRW", "South Korean won"], ["MXN", "Mexican peso"], ["MYR", "Malaysian ringgit"],
+  ["NZD", "New Zealand dollar"], ["PHP", "Philippine peso"], ["PKR", "Pakistani rupee"], ["SAR", "Saudi riyal"],
+  ["SGD", "Singapore dollar"], ["THB", "Thai baht"], ["TRY", "Turkish lira"], ["USD", "US dollar"],
+  ["ZAR", "South African rand"],
+];
+
 function StoreProfileForm({
   userId,
   store,
@@ -209,7 +220,7 @@ function StoreProfileForm({
       ? { lat: store.latitude, lng: store.longitude }
       : null,
   );
-  const [currency, setCurrency] = useState(store?.currency ?? "INR");
+  const [currency, setCurrency] = useState<string>(store?.currency ?? "INR");
   const [busy, setBusy] = useState(false);
   const mapPins = useMemo(
     () => (coords ? [{ id: "selected-store", name: name || "Selected store", address, city, latitude: coords.lat, longitude: coords.lng }] : []),
@@ -257,6 +268,7 @@ function StoreProfileForm({
         : { error: new Error("Please sign in before creating a store.") };
     setBusy(false);
     if (saveResult.error) {
+      reportConnectionFailure(saveResult.error);
       toast.error(saveResult.error.message);
       return;
     }
@@ -287,15 +299,7 @@ function StoreProfileForm({
           <Select value={currency} onValueChange={setCurrency}>
             <SelectTrigger id="store-currency" aria-label="Store currency"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {[
-                ["AED", "UAE dirham"], ["AUD", "Australian dollar"], ["BDT", "Bangladeshi taka"], ["BRL", "Brazilian real"],
-                ["CAD", "Canadian dollar"], ["CHF", "Swiss franc"], ["CNY", "Chinese yuan"], ["EUR", "Euro"],
-                ["GBP", "British pound"], ["HKD", "Hong Kong dollar"], ["IDR", "Indonesian rupiah"], ["INR", "Indian rupee"],
-                ["JPY", "Japanese yen"], ["KRW", "South Korean won"], ["MXN", "Mexican peso"], ["MYR", "Malaysian ringgit"],
-                ["NZD", "New Zealand dollar"], ["PHP", "Philippine peso"], ["PKR", "Pakistani rupee"], ["SAR", "Saudi riyal"],
-                ["SGD", "Singapore dollar"], ["THB", "Thai baht"], ["TRY", "Turkish lira"], ["USD", "US dollar"],
-                ["ZAR", "South African rand"],
-              ].map(([code, name]) => <SelectItem key={code} value={code}>{code} · {name}</SelectItem>)}
+              {CURRENCY_OPTIONS.map(([code, name]) => <SelectItem key={code} value={code}>{code} · {name}</SelectItem>)}
             </SelectContent>
           </Select>
           {store && currency !== store.currency && (
@@ -383,6 +387,7 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
     });
     setBusy(false);
     if (error) {
+      reportConnectionFailure(error);
       toast.error(error.message);
       return;
     }
@@ -396,6 +401,7 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
   async function removeItem(id: string) {
     const { error } = await supabase.from("inventory_items").delete().eq("id", id);
     if (error) {
+      reportConnectionFailure(error);
       toast.error(error.message);
       return;
     }
@@ -527,6 +533,7 @@ function ItemStockEditor({ item, onSaved }: { item: ItemRow; onSaved: () => void
       .eq("id", item.id);
     setBusy(false);
     if (error) {
+      reportConnectionFailure(error);
       toast.error(error.message);
       return;
     }

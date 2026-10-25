@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Map as MapIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { reportConnectionFailure } from "@/lib/connectivity";
 
 export type StorePin = {
   id: string;
@@ -56,7 +57,7 @@ function loadMaps(): Promise<void> {
     if (trackingId) params.set("channel", trackingId);
     script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
     script.async = true;
-    script.dataset.stockspotMaps = "true";
+    script.dataset["stockspotMaps"] = "true";
     window.initStockSpotMap = () => {
       window.dispatchEvent(new Event(MAP_READY_EVENT));
       resolve();
@@ -111,7 +112,8 @@ export function StoreMap({
         }
         setStatus("ready");
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        reportConnectionFailure(error);
         if (!cancelled) setStatus("error");
       });
 
@@ -134,8 +136,11 @@ export function StoreMap({
           title: [store.name, store.address, store.city].filter(Boolean).join(" · "),
         }),
     );
-    const center = selectedLocation ?? stores[0];
-    if (center) map.setCenter(center);
+    if (selectedLocation) {
+      map.setCenter(selectedLocation);
+    } else if (stores[0]) {
+      map.setCenter({ lat: stores[0].latitude, lng: stores[0].longitude });
+    }
     if (stores.length === 1) map.setZoom(14);
 
     return () => {

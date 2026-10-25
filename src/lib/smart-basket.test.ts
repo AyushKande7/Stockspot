@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { calculateBasketPlans, type BasketProduct } from "./smart-basket";
 
 const stores = {
@@ -31,27 +32,27 @@ const products: BasketProduct[] = [
 ];
 
 describe("calculateBasketPlans", () => {
-  test("finds the cheapest complete one-store basket while respecting requested quantities", () => {
+  it("finds the cheapest complete one-store basket while respecting requested quantities", () => {
     const [inr] = calculateBasketPlans(products, [
       { productId: "milk", quantity: 2 },
       { productId: "rice", quantity: 1 },
     ]).filter((plan) => plan.currency === "INR");
 
-    expect(inr?.bestSingleStore?.stores[0]?.id).toBe("a");
-    expect(inr?.bestSingleStore?.total).toBe(210);
+    assert.equal(inr?.bestSingleStore?.stores[0]?.id, "a");
+    assert.equal(inr?.bestSingleStore?.total, 210);
   });
 
-  test("finds a lower split-store plan with its actual item assignments", () => {
+  it("finds a lower split-store plan with its actual item assignments", () => {
     const [inr] = calculateBasketPlans(products, [
       { productId: "milk", quantity: 1 },
       { productId: "rice", quantity: 1 },
     ]).filter((plan) => plan.currency === "INR");
 
-    expect(inr?.lowestSplit?.total).toBe(145);
-    expect(inr?.lowestSplit?.stores.map((store) => store.id)).toEqual(["b", "a"]);
+    assert.equal(inr?.lowestSplit?.total, 145);
+    assert.deepEqual(inr?.lowestSplit?.stores.map((store) => store.id), ["b", "a"]);
   });
 
-  test("shows a split-store option when no one store has the complete basket", () => {
+  it("shows a split-store option when no one store has the complete basket", () => {
     const separated: BasketProduct[] = [
       { id: "milk", name: "Milk", unit: "L", listings: [{ id: "milk-a", price: 5, quantity: 2, store: stores.a }] },
       { id: "rice", name: "Rice", unit: "kg", listings: [{ id: "rice-b", price: 4, quantity: 2, store: stores.b }] },
@@ -61,27 +62,27 @@ describe("calculateBasketPlans", () => {
       { productId: "rice", quantity: 1 },
     ]);
 
-    expect(plan?.bestSingleStore).toBeNull();
-    expect(plan?.lowestSplit?.total).toBe(9);
-    expect(plan?.lowestSplit?.stores.map((store) => store.id)).toEqual(["a", "b"]);
+    assert.equal(plan?.bestSingleStore, null);
+    assert.equal(plan?.lowestSplit?.total, 9);
+    assert.deepEqual(plan?.lowestSplit?.stores.map((store) => store.id), ["a", "b"]);
   });
 
-  test("does not combine prices denominated in different currencies", () => {
+  it("does not combine prices denominated in different currencies", () => {
     const plans = calculateBasketPlans(products, [
       { productId: "milk", quantity: 1 },
       { productId: "rice", quantity: 1 },
     ]);
 
-    expect(plans.map((plan) => plan.currency)).toEqual(["INR", "USD"]);
-    expect(plans.find((plan) => plan.currency === "USD")?.lowestSplit?.total).toBe(7);
+    assert.deepEqual(plans.map((plan) => plan.currency), ["INR", "USD"]);
+    assert.equal(plans.find((plan) => plan.currency === "USD")?.lowestSplit?.total, 7);
   });
 
-  test("rejects a basket when a listing cannot fulfill the requested quantity", () => {
-    expect(calculateBasketPlans(products, [{ productId: "milk", quantity: 6 }])).toEqual([]);
+  it("rejects a basket when a listing cannot fulfill the requested quantity", () => {
+    assert.deepEqual(calculateBasketPlans(products, [{ productId: "milk", quantity: 6 }]), []);
   });
 
-  test("returns no basket for a product that has no usable store listing", () => {
+  it("returns no basket for a product that has no usable store listing", () => {
     const unavailable: BasketProduct[] = [{ id: "bread", name: "Bread", unit: "pc", listings: [] }];
-    expect(calculateBasketPlans(unavailable, [{ productId: "bread", quantity: 1 }])).toEqual([]);
+    assert.deepEqual(calculateBasketPlans(unavailable, [{ productId: "bread", quantity: 1 }]), []);
   });
 });
