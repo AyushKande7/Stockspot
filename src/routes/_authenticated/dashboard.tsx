@@ -24,6 +24,7 @@ import { deleteOwnAccount } from "@/lib/account.functions";
 import { formatStoreNumber, formatStorePrice } from "@/lib/money";
 import { StoreMap } from "@/components/StoreMap";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { reportConnectionFailure } from "@/lib/connectivity";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -257,6 +258,7 @@ function StoreProfileForm({
         : { error: new Error("Please sign in before creating a store.") };
     setBusy(false);
     if (saveResult.error) {
+      reportConnectionFailure(saveResult.error);
       toast.error(saveResult.error.message);
       return;
     }
@@ -383,6 +385,7 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
     });
     setBusy(false);
     if (error) {
+      reportConnectionFailure(error);
       toast.error(error.message);
       return;
     }
@@ -396,6 +399,7 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
   async function removeItem(id: string) {
     const { error } = await supabase.from("inventory_items").delete().eq("id", id);
     if (error) {
+      reportConnectionFailure(error);
       toast.error(error.message);
       return;
     }
@@ -527,6 +531,7 @@ function ItemStockEditor({ item, onSaved }: { item: ItemRow; onSaved: () => void
       .eq("id", item.id);
     setBusy(false);
     if (error) {
+      reportConnectionFailure(error);
       toast.error(error.message);
       return;
     }
