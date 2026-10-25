@@ -196,9 +196,11 @@ function AuthPage() {
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
             {forgotPassword ? null : (mode === "signin" ? "New here?" : "Already have an account?")}{" "}
-            <button
+            <Button
               type="button"
-              className="font-medium text-primary underline-offset-4 hover:underline"
+              variant="link"
+              size="sm"
+              className="h-auto p-0 font-medium"
               onClick={() => {
                 setMode(mode === "signin" ? "signup" : "signin");
                 setSignupNotice(false);
@@ -206,7 +208,7 @@ function AuthPage() {
               }}
             >
               {mode === "signin" ? "Create an account" : "Sign in"}
-            </button>
+            </Button>
           </p>
         </div>
       </div>
