@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, type AccountType } from "@/lib/use-session";
+import { reportConnectionFailure } from "@/lib/connectivity";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -60,7 +61,7 @@ function AuthPage() {
         return;
       }
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -69,6 +70,11 @@ function AuthPage() {
           },
         });
         if (error) throw error;
+        if (data.session) {
+          toast.success("Welcome to StockSpot.");
+          navigate({ to: "/dashboard", replace: true });
+          return;
+        }
         setSignupNotice(true);
         toast.success("Check your email to confirm your account.");
         return;
@@ -79,6 +85,7 @@ function AuthPage() {
       }
       navigate({ to: "/dashboard", replace: true });
     } catch (err) {
+      reportConnectionFailure(err);
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setBusy(false);

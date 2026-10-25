@@ -288,13 +288,19 @@ function StoreProfileForm({
             <SelectTrigger id="store-currency" aria-label="Store currency"><SelectValue /></SelectTrigger>
             <SelectContent>
               {[
-                ["INR", "INR · Indian rupee"], ["USD", "USD · US dollar"], ["EUR", "EUR · Euro"],
-                ["GBP", "GBP · British pound"], ["CAD", "CAD · Canadian dollar"], ["AUD", "AUD · Australian dollar"],
-                ["JPY", "JPY · Japanese yen"], ["CHF", "CHF · Swiss franc"], ["SGD", "SGD · Singapore dollar"],
-                ["NZD", "NZD · New Zealand dollar"], ["ZAR", "ZAR · South African rand"],
-              ].map(([code, label]) => <SelectItem key={code} value={code}>{label}</SelectItem>)}
+                ["AED", "UAE dirham"], ["AUD", "Australian dollar"], ["BDT", "Bangladeshi taka"], ["BRL", "Brazilian real"],
+                ["CAD", "Canadian dollar"], ["CHF", "Swiss franc"], ["CNY", "Chinese yuan"], ["EUR", "Euro"],
+                ["GBP", "British pound"], ["HKD", "Hong Kong dollar"], ["IDR", "Indonesian rupiah"], ["INR", "Indian rupee"],
+                ["JPY", "Japanese yen"], ["KRW", "South Korean won"], ["MXN", "Mexican peso"], ["MYR", "Malaysian ringgit"],
+                ["NZD", "New Zealand dollar"], ["PHP", "Philippine peso"], ["PKR", "Pakistani rupee"], ["SAR", "Saudi riyal"],
+                ["SGD", "Singapore dollar"], ["THB", "Thai baht"], ["TRY", "Turkish lira"], ["USD", "US dollar"],
+                ["ZAR", "South African rand"],
+              ].map(([code, name]) => <SelectItem key={code} value={code}>{code} · {name}</SelectItem>)}
             </SelectContent>
           </Select>
+          {store && currency !== store.currency && (
+            <p className="text-xs text-warning">Changing currency only changes the price label; it does not convert your existing prices.</p>
+          )}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">

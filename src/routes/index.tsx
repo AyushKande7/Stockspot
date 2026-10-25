@@ -12,6 +12,7 @@ import freshMarketImage from "@/assets/grocery-fresh-market.jpg";
 import { formatStorePrice } from "@/lib/money";
 import { calculateBasketPlans, type BasketProduct, type BasketSelection } from "@/lib/smart-basket";
 import { MapViewToggle, StoreMap, type StorePin } from "@/components/StoreMap";
+import { reportConnectionFailure } from "@/lib/connectivity";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -136,16 +137,23 @@ function Index() {
   const results = useQuery({
     queryKey: ["storefront-catalogue"],
     queryFn: async (): Promise<StockListing[]> => {
-      let request = supabase
+      const request = supabase
         .from("inventory_items")
         .select(
           "id, name, category, price, quantity, unit, stores(id, name, address, city, phone, opening_hours, contact_email, website, latitude, longitude, currency)",
         )
-        .order("quantity", { ascending: false })
-        .limit(500);
-      const { data, error } = await request;
-      if (error) throw error;
-      return (data ?? []) as unknown as StockListing[];
+        .order("quantity", { ascending: false });
+      const allListings: StockListing[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const { data, error } = await request.range(offset, offset + 499);
+        if (error) {
+          reportConnectionFailure(error);
+          throw error;
+        }
+        allListings.push(...((data ?? []) as unknown as StockListing[]));
+        if ((data ?? []).length < 500) break;
+      }
+      return allListings;
     },
   });
 
@@ -157,7 +165,10 @@ function Index() {
         .select("id, name, address, city, latitude, longitude")
         .not("latitude", "is", null)
         .not("longitude", "is", null);
-      if (error) throw error;
+      if (error) {
+        reportConnectionFailure(error);
+        throw error;
+      }
       return (data ?? []).map((store) => ({
         ...store,
         latitude: Number(store.latitude),
@@ -183,6 +194,15 @@ function Index() {
           return a.distanceKm - b.distanceKm;
         })
       : product.listings,
+  })).map((product) => ({
+    ...product,
+    listings: [...product.listings].sort((a, b) => {
+      const aInStock = a.quantity > 0;
+      const bInStock = b.quantity > 0;
+      if (aInStock !== bInStock) return aInStock ? -1 : 1;
+      if ((a.stores?.currency ?? "INR") !== (b.stores?.currency ?? "INR")) return 0;
+      return Number(a.price) - Number(b.price);
+    }),
   }));
   const products = allProducts.filter((product) => {
     const matchesTerm = !query.trim() || product.name.toLowerCase().includes(query.trim().toLowerCase());
@@ -441,6 +461,7 @@ function Index() {
                     key={product.id}
                     product={product}
                     selectedQuantity={selections.find((selection) => selection.productId === product.id)?.quantity ?? 0}
+                    maxAvailable={Math.max(0, ...product.listings.map((listing) => listing.quantity))}
                     onQuantityChange={(quantity) => setProductQuantity(product.id, quantity)}
                   />
               ))}
@@ -461,7 +482,7 @@ function Index() {
   );
 }
 
-function ProductCard({ product, selectedQuantity, onQuantityChange }: { product: ProductGroup; selectedQuantity: number; onQuantityChange: (quantity: number) => void }) {
+function ProductCard({ product, selectedQuantity, maxAvailable, onQuantityChange }: { product: ProductGroup; selectedQuantity: number; maxAvailable: number; onQuantityChange: (quantity: number) => void }) {
   const [showAll, setShowAll] = useState(false);
   const currencies = [...new Set(product.listings.map((listing) => listing.stores?.currency ?? "INR"))];
   const lowestPrice = currencies.length === 1
@@ -513,7 +534,7 @@ function ProductCard({ product, selectedQuantity, onQuantityChange }: { product:
                   {listing.stores?.name ?? "Store"}
                 </p>
                 <p className="shrink-0 text-right font-semibold tabular-nums">
-                  {formatStorePrice(Number(listing.price), listing.stores?.currency ?? product.currency)}
+              {formatStorePrice(Number(listing.price), listing.stores?.currency ?? "INR")}
                 </p>
               </div>
               <p className="mt-1 flex items-start gap-1.5 break-words text-xs text-muted-foreground">
@@ -582,7 +603,7 @@ function ProductCard({ product, selectedQuantity, onQuantityChange }: { product:
               <Minus className="size-4" />
             </Button>
             <span className="w-6 text-center text-sm font-semibold tabular-nums" aria-live="polite">{selectedQuantity}</span>
-            <Button type="button" variant="secondary" size="icon" aria-label={`Add one ${product.name}`} onClick={() => onQuantityChange(selectedQuantity + 1)}>
+            <Button type="button" variant="secondary" size="icon" aria-label={`Add one ${product.name}`} disabled={selectedQuantity >= maxAvailable} onClick={() => onQuantityChange(selectedQuantity + 1)}>
               <Plus className="size-4" />
             </Button>
           </div>
@@ -632,7 +653,7 @@ function BasketPanel({
           <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
             {selectedProducts.map(({ product, quantity }) => (
               <li key={product.id} className="flex items-center gap-2">
-                <span>{quantity} × {product.name}</span>
+                <span>{quantity} × {product.name} ({product.unit})</span>
                 <Button type="button" size="icon" variant="ghost" aria-label={`Remove ${product.name} from basket`} onClick={() => onRemove(product.id)}>
                   <Minus className="size-3.5" />
                 </Button>
@@ -680,7 +701,7 @@ function BasketPlanSummary({ title, description, plan }: { title: string; descri
       <ul className="mt-3 space-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
         {plan.lines.map((line) => (
           <li key={line.productId} className="flex justify-between gap-2">
-            <span className="min-w-0 break-words">{line.quantity} × {line.name} · {line.store.name}</span>
+            <span className="min-w-0 break-words">{line.quantity} × {line.name} ({line.unit}) · {line.store.name}</span>
             <span className="shrink-0 tabular-nums">{formatStorePrice(line.lineTotal, plan.currency)}</span>
           </li>
         ))}

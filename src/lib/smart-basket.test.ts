@@ -51,6 +51,21 @@ describe("calculateBasketPlans", () => {
     expect(inr?.lowestSplit?.stores.map((store) => store.id)).toEqual(["b", "a"]);
   });
 
+  test("shows a split-store option when no one store has the complete basket", () => {
+    const separated: BasketProduct[] = [
+      { id: "milk", name: "Milk", unit: "L", listings: [{ id: "milk-a", price: 5, quantity: 2, store: stores.a }] },
+      { id: "rice", name: "Rice", unit: "kg", listings: [{ id: "rice-b", price: 4, quantity: 2, store: stores.b }] },
+    ];
+    const [plan] = calculateBasketPlans(separated, [
+      { productId: "milk", quantity: 1 },
+      { productId: "rice", quantity: 1 },
+    ]);
+
+    expect(plan?.bestSingleStore).toBeNull();
+    expect(plan?.lowestSplit?.total).toBe(9);
+    expect(plan?.lowestSplit?.stores.map((store) => store.id)).toEqual(["a", "b"]);
+  });
+
   test("does not combine prices denominated in different currencies", () => {
     const plans = calculateBasketPlans(products, [
       { productId: "milk", quantity: 1 },
