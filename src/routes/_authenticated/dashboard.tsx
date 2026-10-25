@@ -210,7 +210,7 @@ function StoreProfileForm({
       ? { lat: store.latitude, lng: store.longitude }
       : null,
   );
-  const [currency, setCurrency] = useState(store?.currency ?? "INR");
+  const [currency, setCurrency] = useState<string>(store?.currency ?? "INR");
   const [busy, setBusy] = useState(false);
   const mapPins = useMemo(
     () => (coords ? [{ id: "selected-store", name: name || "Selected store", address, city, latitude: coords.lat, longitude: coords.lng }] : []),
