@@ -194,6 +194,15 @@ function Index() {
           return a.distanceKm - b.distanceKm;
         })
       : product.listings,
+  })).map((product) => ({
+    ...product,
+    listings: [...product.listings].sort((a, b) => {
+      const aInStock = a.quantity > 0;
+      const bInStock = b.quantity > 0;
+      if (aInStock !== bInStock) return aInStock ? -1 : 1;
+      if ((a.stores?.currency ?? "INR") !== (b.stores?.currency ?? "INR")) return 0;
+      return Number(a.price) - Number(b.price);
+    }),
   }));
   const products = allProducts.filter((product) => {
     const matchesTerm = !query.trim() || product.name.toLowerCase().includes(query.trim().toLowerCase());
