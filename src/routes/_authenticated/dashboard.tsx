@@ -298,6 +298,9 @@ function StoreProfileForm({
               ].map(([code, name]) => <SelectItem key={code} value={code}>{code} · {name}</SelectItem>)}
             </SelectContent>
           </Select>
+          {store && currency !== store.currency && (
+            <p className="text-xs text-warning">Changing currency only changes the price label; it does not convert your existing prices.</p>
+          )}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">

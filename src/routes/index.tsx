@@ -653,7 +653,7 @@ function BasketPanel({
           <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
             {selectedProducts.map(({ product, quantity }) => (
               <li key={product.id} className="flex items-center gap-2">
-                <span>{quantity} × {product.name}</span>
+                <span>{quantity} × {product.name} ({product.unit})</span>
                 <Button type="button" size="icon" variant="ghost" aria-label={`Remove ${product.name} from basket`} onClick={() => onRemove(product.id)}>
                   <Minus className="size-3.5" />
                 </Button>
@@ -701,7 +701,7 @@ function BasketPlanSummary({ title, description, plan }: { title: string; descri
       <ul className="mt-3 space-y-1 border-t border-border pt-2 text-xs text-muted-foreground">
         {plan.lines.map((line) => (
           <li key={line.productId} className="flex justify-between gap-2">
-            <span className="min-w-0 break-words">{line.quantity} × {line.name} · {line.store.name}</span>
+            <span className="min-w-0 break-words">{line.quantity} × {line.name} ({line.unit}) · {line.store.name}</span>
             <span className="shrink-0 tabular-nums">{formatStorePrice(line.lineTotal, plan.currency)}</span>
           </li>
         ))}

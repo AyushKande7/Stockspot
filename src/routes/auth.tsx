@@ -61,7 +61,7 @@ function AuthPage() {
         return;
       }
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -70,6 +70,11 @@ function AuthPage() {
           },
         });
         if (error) throw error;
+        if (data.session) {
+          toast.success("Welcome to StockSpot.");
+          navigate({ to: "/dashboard", replace: true });
+          return;
+        }
         setSignupNotice(true);
         toast.success("Check your email to confirm your account.");
         return;
