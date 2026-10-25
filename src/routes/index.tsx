@@ -229,7 +229,7 @@ function Index() {
         : null,
     })),
   }));
-  const basketPlans = useMemo(() => calculateBasketPlans(basketProducts, selections), [basketProducts, selections]);
+  const basketPlans = useMemo(() => calculateBasketPlans(basketProducts, selections), [JSON.stringify(basketProducts), selections]);
   const chosenCount = selections.reduce((count, selection) => count + selection.quantity, 0);
 
   function setProductQuantity(productId: string, quantity: number) {

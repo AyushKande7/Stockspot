@@ -7,8 +7,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { WifiOff } from "lucide-react";
 
 import appCss from "../styles.css?url";
@@ -154,11 +153,10 @@ function RootComponent() {
   }, []);
 
   useEffect(() => {
-    if (!offline) {
-      void queryClient.refetchQueries({ type: "active" });
-      void router.invalidate();
-    }
-  }, [offline, queryClient, router]);
+    if (offline) return;
+    void queryClient.refetchQueries({ type: "active" });
+    void router.invalidate();
+  }, [offline]);
 
   return (
     <QueryClientProvider client={queryClient}>

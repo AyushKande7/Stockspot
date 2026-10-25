@@ -195,7 +195,8 @@ function AuthPage() {
           )}
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            {forgotPassword ? null : (mode === "signin" ? "New here?" : "Already have an account?")}{" "}
+            {!forgotPassword && <>
+            {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
             <Button
               type="button"
               variant="link"
@@ -209,6 +210,7 @@ function AuthPage() {
             >
               {mode === "signin" ? "Create an account" : "Sign in"}
             </Button>
+            </>}
           </p>
         </div>
       </div>
