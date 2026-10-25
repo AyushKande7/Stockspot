@@ -142,7 +142,7 @@ export function StoreMap({
       markersRef.current.forEach((marker) => marker.setMap(null));
       markersRef.current = [];
     };
-  }, [stores, selectedLocation]);
+  }, [stores, selectedLocation, status]);
 
   if (status === "error") {
     return (

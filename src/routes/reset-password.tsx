@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { reportConnectionFailure } from "@/lib/connectivity";
 
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
@@ -56,6 +57,7 @@ function ResetPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password });
     setBusy(false);
     if (error) {
+      reportConnectionFailure(error);
       toast.error(error.message);
       return;
     }

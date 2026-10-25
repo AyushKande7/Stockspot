@@ -16,6 +16,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { connectionLostEvent } from "@/lib/connectivity";
 
 function NotFoundComponent() {
   return (
@@ -143,9 +144,12 @@ function RootComponent() {
     updateConnection();
     window.addEventListener("offline", updateConnection);
     window.addEventListener("online", updateConnection);
+    const handleConnectionLoss = () => setOffline(true);
+    window.addEventListener(connectionLostEvent, handleConnectionLoss);
     return () => {
       window.removeEventListener("offline", updateConnection);
       window.removeEventListener("online", updateConnection);
+      window.removeEventListener(connectionLostEvent, handleConnectionLoss);
     };
   }, []);
 

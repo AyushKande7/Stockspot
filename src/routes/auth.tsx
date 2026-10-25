@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession, type AccountType } from "@/lib/use-session";
+import { reportConnectionFailure } from "@/lib/connectivity";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -79,6 +80,7 @@ function AuthPage() {
       }
       navigate({ to: "/dashboard", replace: true });
     } catch (err) {
+      reportConnectionFailure(err);
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setBusy(false);
