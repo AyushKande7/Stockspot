@@ -189,6 +189,16 @@ function StoreDashboard({ userId }: { userId: string }) {
   return <InventoryManager store={storeQuery.data} onSaved={refresh} />;
 }
 
+const CURRENCY_OPTIONS: Array<[string, string]> = [
+  ["AED", "UAE dirham"], ["AUD", "Australian dollar"], ["BDT", "Bangladeshi taka"], ["BRL", "Brazilian real"],
+  ["CAD", "Canadian dollar"], ["CHF", "Swiss franc"], ["CNY", "Chinese yuan"], ["EUR", "Euro"],
+  ["GBP", "British pound"], ["HKD", "Hong Kong dollar"], ["IDR", "Indonesian rupiah"], ["INR", "Indian rupee"],
+  ["JPY", "Japanese yen"], ["KRW", "South Korean won"], ["MXN", "Mexican peso"], ["MYR", "Malaysian ringgit"],
+  ["NZD", "New Zealand dollar"], ["PHP", "Philippine peso"], ["PKR", "Pakistani rupee"], ["SAR", "Saudi riyal"],
+  ["SGD", "Singapore dollar"], ["THB", "Thai baht"], ["TRY", "Turkish lira"], ["USD", "US dollar"],
+  ["ZAR", "South African rand"],
+];
+
 function StoreProfileForm({
   userId,
   store,
@@ -289,15 +299,7 @@ function StoreProfileForm({
           <Select value={currency} onValueChange={setCurrency}>
             <SelectTrigger id="store-currency" aria-label="Store currency"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {[
-                ["AED", "UAE dirham"], ["AUD", "Australian dollar"], ["BDT", "Bangladeshi taka"], ["BRL", "Brazilian real"],
-                ["CAD", "Canadian dollar"], ["CHF", "Swiss franc"], ["CNY", "Chinese yuan"], ["EUR", "Euro"],
-                ["GBP", "British pound"], ["HKD", "Hong Kong dollar"], ["IDR", "Indonesian rupiah"], ["INR", "Indian rupee"],
-                ["JPY", "Japanese yen"], ["KRW", "South Korean won"], ["MXN", "Mexican peso"], ["MYR", "Malaysian ringgit"],
-                ["NZD", "New Zealand dollar"], ["PHP", "Philippine peso"], ["PKR", "Pakistani rupee"], ["SAR", "Saudi riyal"],
-                ["SGD", "Singapore dollar"], ["THB", "Thai baht"], ["TRY", "Turkish lira"], ["USD", "US dollar"],
-                ["ZAR", "South African rand"],
-              ].map(([code, name]) => <SelectItem key={code} value={code}>{code} · {name}</SelectItem>)}
+              {CURRENCY_OPTIONS.map(([code, name]) => <SelectItem key={code} value={code}>{code} · {name}</SelectItem>)}
             </SelectContent>
           </Select>
           {store && currency !== store.currency && (
