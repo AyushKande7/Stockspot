@@ -83,7 +83,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "theme-color", content: "#10120f" },
-      { title: "StockSpot — Find grocery stock near you" },
+      { title: "GrocerLink — Find grocery stock near you" },
       {
         name: "description",
         content: "Search an item and instantly see which nearby stores have it in stock, at what price.",
@@ -94,7 +94,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/stockspot-icon-192.png" },
+      { rel: "apple-touch-icon", href: "/grocerlink-icon-192.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

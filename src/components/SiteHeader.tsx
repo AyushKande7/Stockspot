@@ -40,7 +40,7 @@ export function SiteHeader() {
           <span className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <ShoppingBasket className="size-[18px]" />
           </span>
-          <span className="font-display text-lg font-bold">StockSpot</span>
+          <span className="font-display text-lg font-bold">GrocerLink</span>
         </Link>
 
         <nav className="flex items-center gap-1 sm:gap-2">

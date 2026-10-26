@@ -29,10 +29,10 @@ import { reportConnectionFailure } from "@/lib/connectivity";
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — StockSpot" },
+      { title: "Dashboard — GrocerLink" },
       { name: "description", content: "Manage your store details and keep item stock and prices current." },
-      { property: "og:title", content: "Dashboard — StockSpot" },
-      { property: "og:description", content: "Manage your store stock on StockSpot." },
+      { property: "og:title", content: "Dashboard — GrocerLink" },
+      { property: "og:description", content: "Manage your store stock on GrocerLink." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -119,7 +119,7 @@ function AccountDangerZone() {
   return (
     <section className="mt-10 border-t border-border pt-6">
       <h2 className="text-lg font-semibold">Account</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Permanently remove your StockSpot account and its associated store listings.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Permanently remove your GrocerLink account and its associated store listings.</p>
       <Button type="button" variant="destructive" className="mt-4" onClick={() => setOpen(true)}>
         Delete account
       </Button>

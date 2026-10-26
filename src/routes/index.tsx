@@ -17,13 +17,13 @@ import { reportConnectionFailure } from "@/lib/connectivity";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "StockSpot — Compare groceries and store stock nearby" },
+      { title: "GrocerLink — Compare groceries and store stock nearby" },
       {
         name: "description",
         content:
           "Browse groceries, compare prices and see live quantities, locations and store details from nearby shops.",
       },
-      { property: "og:title", content: "StockSpot — Compare groceries and store stock nearby" },
+      { property: "og:title", content: "GrocerLink — Compare groceries and store stock nearby" },
       {
         property: "og:description",
         content: "Browse groceries and compare live stock, prices and nearby store details.",
@@ -348,7 +348,7 @@ function Index() {
       <main className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase text-primary">StockSpot prices</p>
+            <p className="text-xs font-semibold uppercase text-primary">GrocerLink prices</p>
             <h2 className="mt-1 font-display text-2xl font-bold">
               {query ? `Results for “${query}”` : "Groceries near you"}
             </h2>

@@ -71,8 +71,8 @@ export function InstallAppButton() {
         variant="outline"
         size="sm"
         onClick={handleClick}
-        aria-label="Install StockSpot app"
-        title="Install StockSpot app"
+        aria-label="Install GrocerLink app"
+        title="Install GrocerLink app"
       >
         <Smartphone className="size-4" />
         <span className="hidden sm:inline">Install app</span>
@@ -80,7 +80,7 @@ export function InstallAppButton() {
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Install StockSpot on your phone</DialogTitle>
+            <DialogTitle>Install GrocerLink on your phone</DialogTitle>
             <DialogDescription>
               {isIos
                 ? "In Safari, tap the Share button at the bottom of the screen, then choose “Add to Home Screen”."
