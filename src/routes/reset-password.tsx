@@ -11,10 +11,10 @@ import { reportConnectionFailure } from "@/lib/connectivity";
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
-      { title: "Reset password — StockSpot" },
-      { name: "description", content: "Set a new password for your StockSpot grocery account." },
-      { property: "og:title", content: "Reset password — StockSpot" },
-      { property: "og:description", content: "Choose a new password for your StockSpot account." },
+      { title: "Reset password — GrocerLink" },
+      { name: "description", content: "Set a new password for your GrocerLink grocery account." },
+      { property: "og:title", content: "Reset password — GrocerLink" },
+      { property: "og:description", content: "Choose a new password for your GrocerLink account." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -71,7 +71,7 @@ function ResetPasswordPage() {
       <div className="relative w-full max-w-md">
         <Link to="/" className="mb-8 flex items-center justify-center gap-2">
           <span className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground"><ShoppingBasket className="size-5" /></span>
-          <span className="font-display text-xl font-bold">StockSpot</span>
+          <span className="font-display text-xl font-bold">GrocerLink</span>
         </Link>
         <section className="glow-panel border border-border p-6">
           <span className="flex size-10 items-center justify-center rounded-md bg-accent text-accent-foreground"><KeyRound className="size-5" /></span>
@@ -79,7 +79,7 @@ function ResetPasswordPage() {
           {saved ? (
             <div className="mt-4 space-y-4">
               <p role="status" className="text-sm text-muted-foreground">Your password is updated and you’re signed in.</p>
-              <Button className="w-full" onClick={() => void navigate({ to: "/dashboard", replace: true })}>Continue to StockSpot</Button>
+              <Button className="w-full" onClick={() => void navigate({ to: "/dashboard", replace: true })}>Continue to GrocerLink</Button>
             </div>
           ) : !recoveryLink ? (
             <div className="mt-4 space-y-4">

@@ -13,15 +13,15 @@ import { reportConnectionFailure } from "@/lib/connectivity";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — StockSpot grocery stock finder" },
+      { title: "Sign in — GrocerLink grocery stock finder" },
       {
         name: "description",
         content: "Sign in as a shopper to find stock nearby, or as a store to keep your inventory up to date.",
       },
-      { property: "og:title", content: "Sign in — StockSpot" },
+      { property: "og:title", content: "Sign in — GrocerLink" },
       {
         property: "og:description",
-        content: "Shopper and store logins for the StockSpot grocery stock finder.",
+        content: "Shopper and store logins for the GrocerLink grocery stock finder.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -71,7 +71,7 @@ function AuthPage() {
         });
         if (error) throw error;
         if (data.session) {
-          toast.success("Welcome to StockSpot.");
+          toast.success("Welcome to GrocerLink.");
           navigate({ to: "/dashboard", replace: true });
           return;
         }
@@ -100,7 +100,7 @@ function AuthPage() {
           <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <ShoppingBasket className="size-5" />
           </span>
-          <span className="font-display text-xl font-bold">StockSpot</span>
+          <span className="font-display text-xl font-bold">GrocerLink</span>
         </Link>
 
         <div className="glow-panel rounded-2xl border border-border p-6">

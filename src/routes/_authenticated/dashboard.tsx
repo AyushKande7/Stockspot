@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { MapPin, Package, Plus, Search, Store as StoreIcon, Trash2 } from "lucide-react";
+import { Image as ImageIcon, MapPin, Package, Plus, Search, Store as StoreIcon, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,14 +25,20 @@ import { formatStoreNumber, formatStorePrice } from "@/lib/money";
 import { StoreMap } from "@/components/StoreMap";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { reportConnectionFailure } from "@/lib/connectivity";
+import {
+  isProductImagePath,
+  productImageUploadPath,
+  signProductImagePaths,
+  validateProductImage,
+} from "@/lib/product-images";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — StockSpot" },
+      { title: "Dashboard — GrocerLink" },
       { name: "description", content: "Manage your store details and keep item stock and prices current." },
-      { property: "og:title", content: "Dashboard — StockSpot" },
-      { property: "og:description", content: "Manage your store stock on StockSpot." },
+      { property: "og:title", content: "Dashboard — GrocerLink" },
+      { property: "og:description", content: "Manage your store stock on GrocerLink." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -61,6 +67,7 @@ type ItemRow = {
   price: number;
   quantity: number;
   unit: string;
+  image_url: string | null;
 };
 
 function Dashboard() {
@@ -119,7 +126,7 @@ function AccountDangerZone() {
   return (
     <section className="mt-10 border-t border-border pt-6">
       <h2 className="text-lg font-semibold">Account</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Permanently remove your StockSpot account and its associated store listings.</p>
+      <p className="mt-1 text-sm text-muted-foreground">Permanently remove your GrocerLink account and its associated store listings.</p>
       <Button type="button" variant="destructive" className="mt-4" onClick={() => setOpen(true)}>
         Delete account
       </Button>
@@ -360,13 +367,16 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
   const [unit, setUnit] = useState("pc");
   const [category, setCategory] = useState("General");
   const [busy, setBusy] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const items = useQuery({
     queryKey: key,
     queryFn: async (): Promise<ItemRow[]> => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, category, price, quantity, unit")
+        .select("id, name, category, price, quantity, unit, image_url")
         .eq("store_id", store.id)
         .order("name");
       if (error) throw error;
@@ -374,9 +384,40 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
     },
   });
 
+  function pickImage(file: File | undefined) {
+    if (!file) return;
+    const problem = validateProductImage(file);
+    if (problem) {
+      toast.error(problem);
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  }
+
+  function clearImage() {
+    setImageFile(null);
+    setImagePreview(null);
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  }
+
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    let image_url: string | null = null;
+    if (imageFile) {
+      const path = productImageUploadPath(store.id, imageFile);
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(path, imageFile, { contentType: imageFile.type });
+      if (uploadError) {
+        setBusy(false);
+        reportConnectionFailure(uploadError);
+        toast.error("The photo could not be uploaded. Try again.");
+        return;
+      }
+      image_url = `product-images/${path}`;
+    }
     const { error } = await supabase.from("inventory_items").insert({
       store_id: store.id,
       name: name.trim(),
@@ -384,6 +425,7 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
       unit,
       price: Number(price) || 0,
       quantity: Number(quantity) || 0,
+      image_url,
     });
     setBusy(false);
     if (error) {
@@ -394,6 +436,7 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
     setName("");
     setPrice("");
     setQuantity("");
+    clearImage();
     toast.success("Item added");
     queryClient.invalidateQueries({ queryKey: key });
   }
@@ -473,6 +516,23 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
             <Label htmlFor="item-unit">Unit</Label>
             <Input id="item-unit" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="kg / pc / L" />
           </div>
+          <div className="space-y-2 lg:col-span-2">
+            <Label htmlFor="item-image">Photo (optional)</Label>
+            {imagePreview ? (
+              <div className="flex items-center gap-3">
+                <img src={imagePreview} alt="Item photo preview" className="size-14 rounded-lg border border-border object-cover" />
+                <Button type="button" variant="outline" size="sm" onClick={clearImage}>Remove photo</Button>
+              </div>
+            ) : (
+              <Input
+                ref={imageInputRef}
+                id="item-image"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={(e) => pickImage(e.target.files?.[0])}
+              />
+            )}
+          </div>
           <div className="flex items-end">
             <Button type="submit" className="w-full" disabled={busy}>
               {busy ? "Adding…" : "Add item"}
@@ -497,7 +557,7 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
                     {item.category} · {formatStorePrice(Number(item.price), store.currency)} per {item.unit}
                   </p>
                 </div>
-                <ItemStockEditor item={item} onSaved={() => queryClient.invalidateQueries({ queryKey: key })} />
+                <ItemStockEditor item={item} storeId={store.id} onSaved={() => queryClient.invalidateQueries({ queryKey: key })} />
                 <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(item.id)} aria-label={`Remove ${item.name}`}>
                     <Trash2 className="size-4" />
                 </Button>
@@ -512,10 +572,27 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
   );
 }
 
-function ItemStockEditor({ item, onSaved }: { item: ItemRow; onSaved: () => void }) {
+function ItemStockEditor({ item, storeId, onSaved }: { item: ItemRow; storeId: string; onSaved: () => void }) {
   const [price, setPrice] = useState(String(item.price));
   const [quantity, setQuantity] = useState(String(item.quantity));
   const [busy, setBusy] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isProductImagePath(item.image_url)) {
+      setThumbUrl(null);
+      return;
+    }
+    void signProductImagePaths([item.image_url]).then((map) => {
+      if (!cancelled) setThumbUrl(item.image_url ? map.get(item.image_url) ?? null : null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [item.image_url]);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -541,19 +618,104 @@ function ItemStockEditor({ item, onSaved }: { item: ItemRow; onSaved: () => void
     onSaved();
   }
 
+  async function changePhoto(file: File | undefined) {
+    if (!file) return;
+    const problem = validateProductImage(file);
+    if (problem) {
+      toast.error(problem);
+      return;
+    }
+    setPhotoBusy(true);
+    const path = productImageUploadPath(storeId, file);
+    const { error: uploadError } = await supabase.storage
+      .from("product-images")
+      .upload(path, file, { contentType: file.type });
+    if (uploadError) {
+      setPhotoBusy(false);
+      reportConnectionFailure(uploadError);
+      toast.error("The photo could not be uploaded. Try again.");
+      return;
+    }
+    const { error } = await supabase
+      .from("inventory_items")
+      .update({ image_url: `product-images/${path}` })
+      .eq("id", item.id);
+    setPhotoBusy(false);
+    if (error) {
+      reportConnectionFailure(error);
+      toast.error(error.message);
+      return;
+    }
+    if (isProductImagePath(item.image_url)) {
+      void supabase.storage.from("product-images").remove([item.image_url.replace("product-images/", "")]);
+    }
+    toast.success("Photo updated");
+    onSaved();
+  }
+
+  async function removePhoto() {
+    setPhotoBusy(true);
+    const { error } = await supabase
+      .from("inventory_items")
+      .update({ image_url: null })
+      .eq("id", item.id);
+    setPhotoBusy(false);
+    if (error) {
+      reportConnectionFailure(error);
+      toast.error(error.message);
+      return;
+    }
+    if (isProductImagePath(item.image_url)) {
+      void supabase.storage.from("product-images").remove([item.image_url.replace("product-images/", "")]);
+    }
+    toast.success("Photo removed");
+    onSaved();
+  }
+
   return (
-    <form onSubmit={save} className="flex flex-wrap items-end gap-2">
-      <div className="w-24 space-y-1">
-        <Label htmlFor={`price-${item.id}`} className="text-xs">Price</Label>
-        <Input id={`price-${item.id}`} type="number" min="0" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} aria-label={`Price for ${item.name}`} />
+    <div className="flex flex-wrap items-end gap-3">
+      <div className="flex items-center gap-2">
+        {thumbUrl ? (
+          <img src={thumbUrl} alt={`Photo of ${item.name}`} className="size-11 rounded-md border border-border object-cover" />
+        ) : (
+          <span className="flex size-11 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground">
+            <ImageIcon className="size-4" />
+          </span>
+        )}
+        <div className="flex flex-col gap-1">
+          <Button type="button" variant="outline" size="sm" disabled={photoBusy} onClick={() => fileRef.current?.click()}>
+            {item.image_url ? "Change photo" : "Add photo"}
+          </Button>
+          {item.image_url && (
+            <Button type="button" variant="ghost" size="sm" disabled={photoBusy} onClick={removePhoto}>
+              Remove
+            </Button>
+          )}
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            void changePhoto(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
       </div>
-      <div className="w-24 space-y-1">
-        <Label htmlFor={`quantity-${item.id}`} className="text-xs">Stock ({item.unit})</Label>
-        <Input id={`quantity-${item.id}`} type="number" min="0" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} aria-label={`Stock quantity for ${item.name}`} />
-      </div>
-      <Button type="submit" variant="secondary" size="sm" disabled={busy}>
-        {busy ? "Saving…" : "Save"}
-      </Button>
-    </form>
+      <form onSubmit={save} className="flex flex-wrap items-end gap-2">
+        <div className="w-24 space-y-1">
+          <Label htmlFor={`price-${item.id}`} className="text-xs">Price</Label>
+          <Input id={`price-${item.id}`} type="number" min="0" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} aria-label={`Price for ${item.name}`} />
+        </div>
+        <div className="w-24 space-y-1">
+          <Label htmlFor={`quantity-${item.id}`} className="text-xs">Stock ({item.unit})</Label>
+          <Input id={`quantity-${item.id}`} type="number" min="0" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} aria-label={`Stock quantity for ${item.name}`} />
+        </div>
+        <Button type="submit" variant="secondary" size="sm" disabled={busy}>
+          {busy ? "Saving…" : "Save"}
+        </Button>
+      </form>
+    </div>
   );
 }

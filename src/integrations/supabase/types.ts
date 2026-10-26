@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           category: string
           id: string
+          image_url: string | null
           name: string
           price: number
           quantity: number
@@ -28,6 +29,7 @@ export type Database = {
         Insert: {
           category?: string
           id?: string
+          image_url?: string | null
           name: string
           price?: number
           quantity?: number
@@ -38,6 +40,7 @@ export type Database = {
         Update: {
           category?: string
           id?: string
+          image_url?: string | null
           name?: string
           price?: number
           quantity?: number
