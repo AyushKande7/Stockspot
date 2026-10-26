@@ -13,6 +13,7 @@ import { formatStorePrice } from "@/lib/money";
 import { calculateBasketPlans, type BasketProduct, type BasketSelection } from "@/lib/smart-basket";
 import { MapViewToggle, StoreMap, type StorePin } from "@/components/StoreMap";
 import { reportConnectionFailure } from "@/lib/connectivity";
+import { signProductImagePaths } from "@/lib/product-images";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -56,6 +57,8 @@ type StockListing = {
   price: number;
   quantity: number;
   unit: string;
+  image_url: string | null;
+  imageUrl: string | null;
   stores: StoreInfo | null;
   distanceKm?: number | null;
 };
@@ -65,6 +68,7 @@ type ProductGroup = {
   name: string;
   category: string;
   unit: string;
+  imageUrl: string | null;
   listings: StockListing[];
 };
 
@@ -140,7 +144,7 @@ function Index() {
       const request = supabase
         .from("inventory_items")
         .select(
-          "id, name, category, price, quantity, unit, stores(id, name, address, city, phone, opening_hours, contact_email, website, latitude, longitude, currency)",
+          "id, name, category, price, quantity, unit, image_url, stores(id, name, address, city, phone, opening_hours, contact_email, website, latitude, longitude, currency)",
         )
         .order("quantity", { ascending: false });
       const allListings: StockListing[] = [];
@@ -153,7 +157,13 @@ function Index() {
         allListings.push(...((data ?? []) as unknown as StockListing[]));
         if ((data ?? []).length < 500) break;
       }
-      return allListings;
+      const signed = await signProductImagePaths(
+        allListings.map((listing) => listing.image_url ?? ""),
+      );
+      return allListings.map((listing) => ({
+        ...listing,
+        imageUrl: listing.image_url ? signed.get(listing.image_url) ?? null : null,
+      }));
     },
   });
 
