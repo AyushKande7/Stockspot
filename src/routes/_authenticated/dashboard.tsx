@@ -367,13 +367,16 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
   const [unit, setUnit] = useState("pc");
   const [category, setCategory] = useState("General");
   const [busy, setBusy] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const items = useQuery({
     queryKey: key,
     queryFn: async (): Promise<ItemRow[]> => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, category, price, quantity, unit")
+        .select("id, name, category, price, quantity, unit, image_url")
         .eq("store_id", store.id)
         .order("name");
       if (error) throw error;
@@ -381,9 +384,40 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
     },
   });
 
+  function pickImage(file: File | undefined) {
+    if (!file) return;
+    const problem = validateProductImage(file);
+    if (problem) {
+      toast.error(problem);
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  }
+
+  function clearImage() {
+    setImageFile(null);
+    setImagePreview(null);
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  }
+
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    let image_url: string | null = null;
+    if (imageFile) {
+      const path = productImageUploadPath(store.id, imageFile);
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(path, imageFile, { contentType: imageFile.type });
+      if (uploadError) {
+        setBusy(false);
+        reportConnectionFailure(uploadError);
+        toast.error("The photo could not be uploaded. Try again.");
+        return;
+      }
+      image_url = `product-images/${path}`;
+    }
     const { error } = await supabase.from("inventory_items").insert({
       store_id: store.id,
       name: name.trim(),
@@ -391,6 +425,7 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
       unit,
       price: Number(price) || 0,
       quantity: Number(quantity) || 0,
+      image_url,
     });
     setBusy(false);
     if (error) {
@@ -401,6 +436,7 @@ function InventoryManager({ store, onSaved }: { store: StoreRow; onSaved: () => 
     setName("");
     setPrice("");
     setQuantity("");
+    clearImage();
     toast.success("Item added");
     queryClient.invalidateQueries({ queryKey: key });
   }
