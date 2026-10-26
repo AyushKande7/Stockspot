@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { MapPin, Package, Plus, Search, Store as StoreIcon, Trash2 } from "lucide-react";
+import { Image as ImageIcon, MapPin, Package, Plus, Search, Store as StoreIcon, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,12 @@ import { formatStoreNumber, formatStorePrice } from "@/lib/money";
 import { StoreMap } from "@/components/StoreMap";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { reportConnectionFailure } from "@/lib/connectivity";
+import {
+  isProductImagePath,
+  productImageUploadPath,
+  signProductImagePaths,
+  validateProductImage,
+} from "@/lib/product-images";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -61,6 +67,7 @@ type ItemRow = {
   price: number;
   quantity: number;
   unit: string;
+  image_url: string | null;
 };
 
 function Dashboard() {
